@@ -1,0 +1,14 @@
+# Backend - archivos ignorados
+
+# Dependencias
+node_modules/
+
+# Variables de entorno REALES (solo subir .env.example)
+.env
+
+# Imágenes subidas por usuarios (no van en el repo)
+uploads/*
+!uploads/.gitkeep
+
+# Logs
+*.log

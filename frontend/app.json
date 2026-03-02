@@ -1,0 +1,38 @@
+{
+    "expo": {
+        "name": "Ce-Kalan",
+        "slug": "ce-kalan",
+        "version": "1.0.0",
+        "orientation": "portrait",
+        "icon": "./assets/icon.png",
+        "userInterfaceStyle": "light",
+        "splash": {
+            "image": "./assets/splash.png",
+            "resizeMode": "contain",
+            "backgroundColor": "#1B5E20"
+        },
+        "ios": {
+            "supportsTablet": true,
+            "bundleIdentifier": "com.cekalan.app"
+        },
+        "android": {
+            "adaptiveIcon": {
+                "foregroundImage": "./assets/adaptive-icon.png",
+                "backgroundColor": "#1B5E20"
+            },
+            "package": "com.cekalan.app"
+        },
+        "web": {
+            "favicon": "./assets/favicon.png"
+        },
+        "plugins": [
+            [
+                "expo-image-picker",
+                {
+                    "photosPermission": "Ce-Kalan necesita acceso a tus fotos para gestionar imágenes de plaguicidas.",
+                    "cameraPermission": "Ce-Kalan necesita acceso a la cámara para tomar fotos de plaguicidas."
+                }
+            ]
+        ]
+    }
+}
