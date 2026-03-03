@@ -1,7 +1,8 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
     View, Text, TextInput, TouchableOpacity, StyleSheet,
     Alert, ScrollView, Modal, ActivityIndicator,
+    Animated, Easing
 } from 'react-native';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
 import axios from 'axios';
@@ -10,7 +11,7 @@ import { ENDPOINTS } from '../config/api';
 import { useLanguage } from '../context/LanguageContext';
 import { COLORS, SPACING, SHADOWS } from '../constants/theme';
 
-// Configuración de locale en español
+/* ================= LOCALE ================= */
 LocaleConfig.locales['es'] = {
     monthNames: ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'],
     monthNamesShort: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'],
@@ -23,6 +24,7 @@ LocaleConfig.defaultLocale = 'es';
 const COLORS_EVENTS = ['#2E7D32', '#FFA000', '#1565C0', '#AD1457', '#37474F', '#6A1B9A'];
 
 export default function CalendarioScreen() {
+
     const [eventos, setEventos] = useState([]);
     const [diaSeleccionado, setDiaSeleccionado] = useState('');
     const [eventosDelDia, setEventosDelDia] = useState([]);
@@ -32,8 +34,14 @@ export default function CalendarioScreen() {
     const [colorSeleccionado, setColorSeleccionado] = useState(COLORS_EVENTS[0]);
     const [guardando, setGuardando] = useState(false);
     const [cargando, setCargando] = useState(false);
+
     const { t } = useLanguage();
 
+    /* ================= ANIMACIONES ================= */
+    const scaleAnim = useRef(new Animated.Value(1)).current;
+    const fadeAnim = useRef(new Animated.Value(0)).current;
+
+    /* ================= CARGAR EVENTOS ================= */
     const cargarEventos = useCallback(async () => {
         setCargando(true);
         try {
@@ -48,10 +56,10 @@ export default function CalendarioScreen() {
 
     useFocusEffect(useCallback(() => { cargarEventos(); }, [cargarEventos]));
 
-    // Construir el objeto de fechas marcadas para el calendario
+    /* ================= MARCAR FECHAS ================= */
     const markedDates = {};
     eventos.forEach((ev) => {
-        const fecha = ev.fecha.substring(0, 10); // YYYY-MM-DD
+        const fecha = ev.fecha.substring(0, 10);
         if (!markedDates[fecha]) {
             markedDates[fecha] = { dots: [], marked: true };
         }
@@ -67,17 +75,45 @@ export default function CalendarioScreen() {
         };
     }
 
+    /* ================= SELECCIONAR DÍA ================= */
     const onDiaPress = (day) => {
+
+        Animated.sequence([
+            Animated.timing(scaleAnim, {
+                toValue: 0.95,
+                duration: 100,
+                useNativeDriver: true,
+            }),
+            Animated.spring(scaleAnim, {
+                toValue: 1,
+                friction: 4,
+                useNativeDriver: true,
+            })
+        ]).start();
+
+        fadeAnim.setValue(0);
+        Animated.timing(fadeAnim, {
+            toValue: 1,
+            duration: 400,
+            easing: Easing.out(Easing.ease),
+            useNativeDriver: true,
+        }).start();
+
         setDiaSeleccionado(day.dateString);
-        const evs = eventos.filter((ev) => ev.fecha.substring(0, 10) === day.dateString);
+
+        const evs = eventos.filter(
+            (ev) => ev.fecha.substring(0, 10) === day.dateString
+        );
         setEventosDelDia(evs);
     };
 
+    /* ================= GUARDAR ================= */
     const guardarEvento = async () => {
         if (!titulo.trim() || !diaSeleccionado) {
             Alert.alert(t.error, 'Selecciona un día y escribe un título.');
             return;
         }
+
         setGuardando(true);
         try {
             await axios.post(ENDPOINTS.EVENTOS, {
@@ -86,13 +122,13 @@ export default function CalendarioScreen() {
                 fecha: diaSeleccionado,
                 color: colorSeleccionado,
             });
+
             Alert.alert(t.success, 'Evento guardado.');
             setTitulo('');
             setDescripcion('');
             setModalVisible(false);
             await cargarEventos();
-            const evs = eventos.filter((ev) => ev.fecha.substring(0, 10) === diaSeleccionado);
-            setEventosDelDia(evs);
+
         } catch (error) {
             Alert.alert(t.error, 'No se pudo guardar el evento.');
         } finally {
@@ -100,17 +136,19 @@ export default function CalendarioScreen() {
         }
     };
 
+    /* ================= ELIMINAR ================= */
     const eliminarEvento = (id) => {
         Alert.alert('Eliminar', '¿Deseas eliminar este evento?', [
             { text: t.cancel, style: 'cancel' },
             {
-                text: t.delete, style: 'destructive',
+                text: t.delete,
+                style: 'destructive',
                 onPress: async () => {
                     try {
                         await axios.delete(`${ENDPOINTS.EVENTOS}/${id}`);
                         await cargarEventos();
                         setEventosDelDia((prev) => prev.filter((e) => e.id !== id));
-                    } catch (e) {
+                    } catch {
                         Alert.alert(t.error, 'No se pudo eliminar.');
                     }
                 },
@@ -122,204 +160,273 @@ export default function CalendarioScreen() {
 
     return (
         <View style={styles.container}>
+
+            {/* HEADER */}
             <View style={styles.headerBg}>
                 <Text style={styles.headerEmoji}>📅</Text>
                 <Text style={styles.headerTitle}>{t.calendarTitle}</Text>
             </View>
 
             <ScrollView>
-                <Calendar
-                    current={hoyStr}
-                    onDayPress={onDiaPress}
-                    markingType="multi-dot"
-                    markedDates={markedDates}
-                    theme={{
-                        backgroundColor: COLORS.surface,
-                        calendarBackground: COLORS.surface,
-                        textSectionTitleColor: COLORS.primary,
-                        selectedDayBackgroundColor: COLORS.primary,
-                        selectedDayTextColor: '#ffffff',
-                        todayTextColor: COLORS.secondary,
-                        dayTextColor: COLORS.textPrimary,
-                        textDisabledColor: COLORS.textLight,
-                        arrowColor: COLORS.primary,
-                        monthTextColor: COLORS.primaryDark,
-                        indicatorColor: COLORS.primary,
-                        textDayFontWeight: '500',
-                        textMonthFontWeight: '800',
-                        textDayHeaderFontWeight: '700',
-                    }}
-                    style={styles.calendar}
-                />
 
-                {/* Botón agregar evento */}
-                {diaSeleccionado && (
-                    <View style={styles.selectedDayContainer}>
-                        <Text style={styles.selectedDayTitle}>
-                            {t.eventsFor} {diaSeleccionado}
-                        </Text>
-                        <TouchableOpacity
-                            style={styles.addEventBtn}
-                            onPress={() => setModalVisible(true)}
-                        >
-                            <Text style={styles.addEventBtnText}>+ {t.addEvent}</Text>
-                        </TouchableOpacity>
-                    </View>
-                )}
+                {/* CALENDARIO ANIMADO */}
+                <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+                    <Calendar
+                        current={hoyStr}
+                        onDayPress={onDiaPress}
+                        markingType="multi-dot"
+                        markedDates={markedDates}
+                        theme={{
+                            backgroundColor: COLORS.surface,
+                            calendarBackground: COLORS.surface,
+                            textSectionTitleColor: COLORS.primary,
+                            selectedDayBackgroundColor: COLORS.primary,
+                            selectedDayTextColor: '#fff',
+                            todayTextColor: COLORS.secondary,
+                            arrowColor: COLORS.primary,
+                            monthTextColor: COLORS.primaryDark,
+                        }}
+                        style={styles.calendar}
+                    />
+                </Animated.View>
 
-                {/* Eventos del día seleccionado */}
+                {/* EVENTOS ANIMADOS */}
                 {diaSeleccionado && (
-                    <View style={styles.eventList}>
+                    <Animated.View
+                        style={[
+                            styles.eventList,
+                            {
+                                opacity: fadeAnim,
+                                transform: [{
+                                    translateY: fadeAnim.interpolate({
+                                        inputRange: [0, 1],
+                                        outputRange: [20, 0]
+                                    })
+                                }]
+                            }
+                        ]}
+                    >
+                        <View style={styles.selectedDayContainer}>
+                            <Text style={styles.selectedDayTitle}>
+                                {t.eventsFor} {diaSeleccionado}
+                            </Text>
+
+                            <TouchableOpacity
+                                style={styles.addEventBtn}
+                                activeOpacity={0.7}
+                                onPress={() => setModalVisible(true)}
+                            >
+                                <Text style={styles.addEventBtnText}>
+                                    + {t.addEvent}
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+
                         {eventosDelDia.length === 0 ? (
                             <View style={styles.noEventsCard}>
-                                <Text style={styles.noEventsText}>{t.noEvents}</Text>
+                                <Text style={styles.noEventsText}>
+                                    {t.noEvents}
+                                </Text>
                             </View>
                         ) : (
                             eventosDelDia.map((ev) => (
-                                <View key={ev.id} style={[styles.eventCard, { borderLeftColor: ev.color || COLORS.primary }]}>
-                                    <View style={styles.eventBody}>
+                                <View
+                                    key={ev.id}
+                                    style={[
+                                        styles.eventCard,
+                                        { borderLeftColor: ev.color || COLORS.primary }
+                                    ]}
+                                >
+                                    <View style={{ flex: 1 }}>
                                         <Text style={styles.eventTitle}>{ev.titulo}</Text>
-                                        {ev.descripcion ? (
+                                        {ev.descripcion ?
                                             <Text style={styles.eventDesc}>{ev.descripcion}</Text>
-                                        ) : null}
+                                            : null}
                                     </View>
-                                    <TouchableOpacity
-                                        style={styles.eventDeleteBtn}
-                                        onPress={() => eliminarEvento(ev.id)}
-                                    >
+
+                                    <TouchableOpacity onPress={() => eliminarEvento(ev.id)}>
                                         <Text>🗑️</Text>
                                     </TouchableOpacity>
                                 </View>
                             ))
                         )}
-                    </View>
+                    </Animated.View>
                 )}
             </ScrollView>
 
-            {/* Modal para nuevo evento */}
-            <Modal visible={modalVisible} transparent animationType="slide">
+            {/* MODAL */}
+            <Modal visible={modalVisible} transparent animationType="fade">
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalCard}>
                         <Text style={styles.modalTitle}>{t.addEvent}</Text>
-                        <Text style={styles.modalDate}>📅 {diaSeleccionado}</Text>
 
-                        <Text style={styles.label}>{t.eventTitle}</Text>
                         <TextInput
                             style={styles.input}
                             value={titulo}
                             onChangeText={setTitulo}
                             placeholder="Ej: Aplicar fumigación"
-                            placeholderTextColor={COLORS.textLight}
                         />
 
-                        <Text style={styles.label}>{t.eventDescription}</Text>
                         <TextInput
-                            style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
+                            style={[styles.input, { height: 80 }]}
                             value={descripcion}
                             onChangeText={setDescripcion}
-                            placeholder="Detalles del evento..."
-                            placeholderTextColor={COLORS.textLight}
+                            placeholder="Detalles..."
                             multiline
                         />
 
-                        <Text style={styles.label}>Color del evento</Text>
-                        <View style={styles.colorRow}>
-                            {COLORS_EVENTS.map((c) => (
-                                <TouchableOpacity
-                                    key={c}
-                                    style={[
-                                        styles.colorDot,
-                                        { backgroundColor: c },
-                                        colorSeleccionado === c && styles.colorDotSelected,
-                                    ]}
-                                    onPress={() => setColorSeleccionado(c)}
-                                />
-                            ))}
-                        </View>
-
                         <View style={styles.modalActions}>
-                            <TouchableOpacity style={styles.cancelBtn} onPress={() => setModalVisible(false)}>
-                                <Text style={styles.cancelBtnText}>{t.cancel}</Text>
-                            </TouchableOpacity>
                             <TouchableOpacity
-                                style={[styles.saveBtn, guardando && { opacity: 0.6 }]}
+                                style={styles.cancelBtn}
+                                onPress={() => setModalVisible(false)}
+                            >
+                                <Text>{t.cancel}</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={styles.saveBtn}
                                 onPress={guardarEvento}
-                                disabled={guardando}
                             >
                                 {guardando
                                     ? <ActivityIndicator color="#fff" />
-                                    : <Text style={styles.saveBtnText}>{t.save}</Text>
+                                    : <Text style={{ color: '#fff' }}>{t.save}</Text>
                                 }
                             </TouchableOpacity>
                         </View>
                     </View>
                 </View>
             </Modal>
+
         </View>
     );
 }
 
+/* ================= ESTILOS ================= */
+
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: COLORS.background },
     headerBg: {
-        backgroundColor: COLORS.primaryDark, paddingVertical: SPACING.xl,
-        alignItems: 'center', paddingTop: SPACING.xxl,
+        backgroundColor: COLORS.primaryDark,
+        paddingVertical: SPACING.xl,
+        alignItems: 'center',
     },
-    headerEmoji: { fontSize: 36, marginBottom: 4 },
-    headerTitle: { fontSize: 22, fontWeight: '800', color: '#fff' },
-    calendar: { margin: SPACING.md, borderRadius: 16, ...SHADOWS.medium, overflow: 'hidden' },
+    headerEmoji: { fontSize: 34 },
+    headerTitle: { fontSize: 20, fontWeight: '800', color: '#fff' },
+
+    calendar: {
+        margin: SPACING.md,
+        borderRadius: 16,
+        overflow: 'hidden',
+        ...SHADOWS.medium
+    },
+
     selectedDayContainer: {
-        marginHorizontal: SPACING.md, marginTop: SPACING.sm,
-        flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: SPACING.sm,
     },
-    selectedDayTitle: { fontSize: 15, fontWeight: '700', color: COLORS.textPrimary },
+
+    selectedDayTitle: {
+        fontWeight: '700',
+        fontSize: 15,
+        color: COLORS.textPrimary
+    },
+
     addEventBtn: {
-        backgroundColor: COLORS.secondary, borderRadius: 16,
-        paddingHorizontal: SPACING.md, paddingVertical: SPACING.xs, ...SHADOWS.small,
+        backgroundColor: COLORS.secondary,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 16,
     },
-    addEventBtnText: { color: COLORS.primaryDark, fontWeight: '700', fontSize: 13 },
-    eventList: { marginHorizontal: SPACING.md, marginTop: SPACING.sm, paddingBottom: SPACING.xxl },
+
+    addEventBtnText: {
+        fontWeight: '700',
+        fontSize: 13
+    },
+
+    eventList: {
+        marginHorizontal: SPACING.md,
+        paddingBottom: SPACING.xxl,
+    },
+
     noEventsCard: {
-        backgroundColor: COLORS.surface, borderRadius: 16,
-        padding: SPACING.md, alignItems: 'center', ...SHADOWS.small,
+        backgroundColor: COLORS.surface,
+        padding: SPACING.md,
+        borderRadius: 16,
+        alignItems: 'center',
     },
-    noEventsText: { color: COLORS.textLight, fontSize: 14 },
+
+    noEventsText: {
+        color: COLORS.textLight
+    },
+
     eventCard: {
-        backgroundColor: COLORS.surface, borderRadius: 16, marginBottom: SPACING.sm,
-        flexDirection: 'row', alignItems: 'center', padding: SPACING.md,
-        borderLeftWidth: 5, ...SHADOWS.small,
+        backgroundColor: COLORS.surface,
+        borderRadius: 16,
+        padding: SPACING.md,
+        marginBottom: SPACING.sm,
+        borderLeftWidth: 5,
+        flexDirection: 'row',
+        alignItems: 'center',
+        ...SHADOWS.small
     },
-    eventBody: { flex: 1 },
-    eventTitle: { fontSize: 16, fontWeight: '700', color: COLORS.textPrimary },
-    eventDesc: { fontSize: 13, color: COLORS.textSecondary, marginTop: 2 },
-    eventDeleteBtn: { padding: SPACING.sm },
-    // Modal
-    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+
+    eventTitle: {
+        fontWeight: '700',
+        fontSize: 15
+    },
+
+    eventDesc: {
+        fontSize: 13,
+        color: COLORS.textSecondary
+    },
+
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        justifyContent: 'flex-end'
+    },
+
     modalCard: {
-        backgroundColor: COLORS.surface, borderTopLeftRadius: 28, borderTopRightRadius: 28,
-        padding: SPACING.lg, paddingBottom: SPACING.xxl,
+        backgroundColor: COLORS.surface,
+        padding: SPACING.lg,
+        borderTopLeftRadius: 28,
+        borderTopRightRadius: 28,
     },
-    modalTitle: { fontSize: 20, fontWeight: '800', color: COLORS.textPrimary, textAlign: 'center' },
-    modalDate: { color: COLORS.textSecondary, textAlign: 'center', marginBottom: SPACING.md },
-    label: { fontSize: 13, fontWeight: '600', color: COLORS.textSecondary, marginBottom: 6, marginTop: SPACING.sm },
+
+    modalTitle: {
+        fontWeight: '800',
+        fontSize: 18,
+        marginBottom: SPACING.md
+    },
+
     input: {
-        backgroundColor: COLORS.surfaceGray, borderRadius: 12,
-        paddingHorizontal: SPACING.md, paddingVertical: 13,
-        fontSize: 15, color: COLORS.textPrimary,
-        borderWidth: 1.5, borderColor: COLORS.border,
+        backgroundColor: COLORS.surfaceGray,
+        borderRadius: 12,
+        padding: 12,
+        marginBottom: SPACING.sm
     },
-    colorRow: { flexDirection: 'row', gap: SPACING.sm, marginBottom: SPACING.md },
-    colorDot: { width: 32, height: 32, borderRadius: 16 },
-    colorDotSelected: { borderWidth: 3, borderColor: COLORS.textPrimary, transform: [{ scale: 1.2 }] },
-    modalActions: { flexDirection: 'row', gap: SPACING.sm, marginTop: SPACING.sm },
+
+    modalActions: {
+        flexDirection: 'row',
+        justifyContent: 'space-between'
+    },
+
     cancelBtn: {
-        flex: 1, backgroundColor: COLORS.surfaceGray, borderRadius: 14,
-        paddingVertical: 14, alignItems: 'center',
+        flex: 1,
+        marginRight: 5,
+        padding: 12,
+        alignItems: 'center',
+        backgroundColor: COLORS.surfaceGray,
+        borderRadius: 12,
     },
-    cancelBtnText: { color: COLORS.textSecondary, fontWeight: '600' },
+
     saveBtn: {
-        flex: 1, backgroundColor: COLORS.primary, borderRadius: 14,
-        paddingVertical: 14, alignItems: 'center', ...SHADOWS.medium,
-    },
-    saveBtnText: { color: '#fff', fontWeight: '700' },
+        flex: 1,
+        marginLeft: 5,
+        padding: 12,
+        alignItems: 'center',
+        backgroundColor: COLORS.primary,
+        borderRadius: 12,
+    }
 });
