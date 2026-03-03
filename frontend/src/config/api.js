@@ -12,7 +12,7 @@
 // ⚠️ Tu PC y tu iPhone deben estar en el mismo WiFi.
 // ============================================================
 
-const API_IP = '192.168.0.5'; // ✅ IP de tu laptop (Wi-Fi)
+const API_IP = '192.168.56.1'; // ✅ IP de tu laptop (Wi-Fi)
 const API_PORT = '3001';
 
 export const API_BASE_URL = `http://${API_IP}:${API_PORT}/api`;
