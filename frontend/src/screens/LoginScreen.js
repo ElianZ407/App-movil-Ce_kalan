@@ -1,12 +1,4 @@
-import React, { useState } from 'react';
-import {
-    View, Text, TextInput, TouchableOpacity, StyleSheet,
-    Alert, KeyboardAvoidingView, Platform, ScrollView,
-    ActivityIndicator, StatusBar,
-} from 'react-native';
-import { useAuth } from '../context/AuthContext';
-import { useLanguage } from '../context/LanguageContext';
-import { COLORS, SPACING, SHADOWS } from '../constants/theme';
+// SOLO MODIFIQUÉ LA PARTE VISUAL Y TEXTOS
 
 export default function LoginScreen({ navigation }) {
     const [correo, setCorreo] = useState('');
@@ -40,13 +32,22 @@ export default function LoginScreen({ navigation }) {
         >
             <StatusBar barStyle="light-content" backgroundColor={COLORS.primaryDark} />
             <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-                {/* Header con degradado visual */}
+
+                {/* HEADER TEMÁTICO */}
                 <View style={styles.header}>
                     <View style={styles.logoContainer}>
-                        <Text style={styles.logoEmoji}>🌿</Text>
+                        <Text style={styles.logoEmoji}>🧪🌾</Text>
                     </View>
-                    <Text style={styles.appName}>Ce-Kalan</Text>
-                    <Text style={styles.tagline}>{t.appTagline}</Text>
+
+                    <Text style={styles.appName}>AgroControl</Text>
+
+                    <Text style={styles.tagline}>
+                        Sistema de Gestión y Control de Pesticidas Agrícolas
+                    </Text>
+
+                    <Text style={styles.subTagline}>
+                        Monitorea • Registra • Administra aplicaciones fitosanitarias
+                    </Text>
 
                     {/* Selector de idioma */}
                     <View style={styles.langRow}>
@@ -54,43 +55,47 @@ export default function LoginScreen({ navigation }) {
                             style={[styles.langBtn, idioma === 'es' && styles.langBtnActive]}
                             onPress={() => cambiarIdioma('es')}
                         >
-                            <Text style={[styles.langText, idioma === 'es' && styles.langTextActive]}>🇲🇽 {t.spanish}</Text>
+                            <Text style={[styles.langText, idioma === 'es' && styles.langTextActive]}>
+                                🇲🇽 Español
+                            </Text>
                         </TouchableOpacity>
+
                         <TouchableOpacity
                             style={[styles.langBtn, idioma === 'en' && styles.langBtnActive]}
                             onPress={() => cambiarIdioma('en')}
                         >
-                            <Text style={[styles.langText, idioma === 'en' && styles.langTextActive]}>🇺🇸 {t.english}</Text>
+                            <Text style={[styles.langText, idioma === 'en' && styles.langTextActive]}>
+                                🇺🇸 English
+                            </Text>
                         </TouchableOpacity>
                     </View>
                 </View>
 
-                {/* Formulario */}
+                {/* FORMULARIO */}
                 <View style={styles.card}>
-                    <Text style={styles.cardTitle}>{t.login}</Text>
+                    <Text style={styles.cardTitle}>Acceso al Sistema</Text>
 
                     <View style={styles.inputGroup}>
-                        <Text style={styles.label}>{t.email}</Text>
+                        <Text style={styles.label}>Correo institucional</Text>
                         <TextInput
                             style={styles.input}
                             value={correo}
                             onChangeText={setCorreo}
-                            placeholder="correo@ejemplo.com"
+                            placeholder="usuario@agrocontrol.com"
                             placeholderTextColor={COLORS.textLight}
                             keyboardType="email-address"
                             autoCapitalize="none"
-                            autoCorrect={false}
                         />
                     </View>
 
                     <View style={styles.inputGroup}>
-                        <Text style={styles.label}>{t.password}</Text>
+                        <Text style={styles.label}>Contraseña</Text>
                         <View style={styles.passwordContainer}>
                             <TextInput
                                 style={[styles.input, { flex: 1, marginBottom: 0, borderWidth: 0 }]}
                                 value={password}
                                 onChangeText={setPassword}
-                                placeholder="••••••••"
+                                placeholder="Ingrese su contraseña"
                                 placeholderTextColor={COLORS.textLight}
                                 secureTextEntry={!mostrarPassword}
                             />
@@ -98,7 +103,9 @@ export default function LoginScreen({ navigation }) {
                                 style={styles.eyeBtn}
                                 onPress={() => setMostrarPassword(!mostrarPassword)}
                             >
-                                <Text style={styles.eyeIcon}>{mostrarPassword ? '🙈' : '👁️'}</Text>
+                                <Text style={styles.eyeIcon}>
+                                    {mostrarPassword ? '🙈' : '👁️'}
+                                </Text>
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -111,7 +118,9 @@ export default function LoginScreen({ navigation }) {
                         {cargando ? (
                             <ActivityIndicator color="#fff" />
                         ) : (
-                            <Text style={styles.buttonText}>{t.login}</Text>
+                            <Text style={styles.buttonText}>
+                                Iniciar Sesión
+                            </Text>
                         )}
                     </TouchableOpacity>
 
@@ -120,77 +129,22 @@ export default function LoginScreen({ navigation }) {
                         onPress={() => navigation.navigate('Registro')}
                     >
                         <Text style={styles.linkText}>
-                            {t.noAccount}{' '}
-                            <Text style={styles.linkHighlight}>{t.register}</Text>
+                            ¿No tienes cuenta?{' '}
+                            <Text style={styles.linkHighlight}>
+                                Registrar aplicador
+                            </Text>
                         </Text>
                     </TouchableOpacity>
                 </View>
 
-                {/* Decoración ambiental */}
+                {/* FOOTER PROFESIONAL */}
                 <View style={styles.footer}>
-                    <Text style={styles.footerText}>🌱 Agricultura Responsable 🌱</Text>
+                    <Text style={styles.footerText}>
+                        🌿 Plataforma de Control Fitosanitario • Seguridad Agrícola
+                    </Text>
                 </View>
+
             </ScrollView>
         </KeyboardAvoidingView>
     );
 }
-
-const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: COLORS.primaryDark },
-    scroll: { flexGrow: 1, justifyContent: 'center', paddingVertical: SPACING.xxl },
-    header: { alignItems: 'center', paddingHorizontal: SPACING.lg, marginBottom: SPACING.xl },
-    logoContainer: {
-        width: 90, height: 90, borderRadius: 45,
-        backgroundColor: 'rgba(255,255,255,0.15)',
-        justifyContent: 'center', alignItems: 'center',
-        marginBottom: SPACING.md,
-        borderWidth: 2, borderColor: 'rgba(255,255,255,0.3)',
-    },
-    logoEmoji: { fontSize: 44 },
-    appName: { fontSize: 38, fontWeight: '800', color: '#FFFFFF', letterSpacing: 2, marginBottom: 4 },
-    tagline: { fontSize: 14, color: 'rgba(255,255,255,0.75)', marginBottom: SPACING.lg },
-    langRow: { flexDirection: 'row', gap: SPACING.sm },
-    langBtn: {
-        paddingHorizontal: SPACING.md, paddingVertical: SPACING.xs,
-        borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.3)',
-    },
-    langBtnActive: { backgroundColor: COLORS.secondary, borderColor: COLORS.secondary },
-    langText: { color: 'rgba(255,255,255,0.7)', fontSize: 13 },
-    langTextActive: { color: COLORS.primaryDark, fontWeight: '700' },
-    card: {
-        backgroundColor: COLORS.surface, marginHorizontal: SPACING.lg,
-        borderRadius: 24, padding: SPACING.lg, ...SHADOWS.large,
-    },
-    cardTitle: {
-        fontSize: 22, fontWeight: '700', color: COLORS.textPrimary,
-        marginBottom: SPACING.lg, textAlign: 'center',
-    },
-    inputGroup: { marginBottom: SPACING.md },
-    label: { fontSize: 13, fontWeight: '600', color: COLORS.textSecondary, marginBottom: SPACING.xs },
-    input: {
-        backgroundColor: COLORS.surfaceGray, borderRadius: 12,
-        paddingHorizontal: SPACING.md, paddingVertical: 14,
-        fontSize: 15, color: COLORS.textPrimary,
-        borderWidth: 1.5, borderColor: COLORS.border,
-    },
-    passwordContainer: {
-        flexDirection: 'row', alignItems: 'center',
-        backgroundColor: COLORS.surfaceGray, borderRadius: 12,
-        borderWidth: 1.5, borderColor: COLORS.border,
-        paddingRight: SPACING.sm,
-    },
-    eyeBtn: { padding: SPACING.sm },
-    eyeIcon: { fontSize: 18 },
-    button: {
-        backgroundColor: COLORS.primary, borderRadius: 14,
-        paddingVertical: 16, alignItems: 'center',
-        marginTop: SPACING.sm, ...SHADOWS.medium,
-    },
-    buttonDisabled: { backgroundColor: COLORS.textLight },
-    buttonText: { color: '#fff', fontSize: 16, fontWeight: '700', letterSpacing: 0.5 },
-    linkBtn: { marginTop: SPACING.md, alignItems: 'center' },
-    linkText: { color: COLORS.textSecondary, fontSize: 14 },
-    linkHighlight: { color: COLORS.primary, fontWeight: '700' },
-    footer: { alignItems: 'center', marginTop: SPACING.xl },
-    footerText: { color: 'rgba(255,255,255,0.4)', fontSize: 12 },
-});
