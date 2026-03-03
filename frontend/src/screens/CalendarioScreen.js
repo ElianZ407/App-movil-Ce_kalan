@@ -20,7 +20,7 @@ LocaleConfig.locales['es'] = {
 };
 LocaleConfig.defaultLocale = 'es';
 
-const COLORS_EVENTS = ['#2E7D32', '#FFA000', '#1565C0', '#AD1457', '#37474F', '#6A1B9A'];
+const COLORS_EVENTS = ['#2E7D32', '#FFA000', '#053B79', '#AD1457', '#37474F', '#6A1B9A'];
 
 export default function CalendarioScreen() {
     const [eventos, setEventos] = useState([]);
