@@ -7,7 +7,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { COLORS, SPACING, SHADOWS } from '../constants/theme';
-import { validateLogin, sanitize } from '../utils/validation';
+import { validateLogin, sanitize, isValidEmail } from '../utils/validation';
 import { getErrorMessage, logError } from '../utils/errorHandler';
 
 export default function LoginScreen({ navigation }) {
@@ -16,9 +16,25 @@ export default function LoginScreen({ navigation }) {
     const [cargando, setCargando] = useState(false);
     const [mostrarPassword, setMostrarPassword] = useState(false);
     const [correoError, setCorreoError] = useState('');
+    const [correoValido, setCorreoValido] = useState(null); // null=sin tocar, true=válido, false=inválido
 
     const { login } = useAuth();
     const { t, idioma, cambiarIdioma } = useLanguage();
+
+    // Validación en tiempo real del correo
+    const onCorreoChange = (valor) => {
+        setCorreo(valor);
+        setCorreoError('');
+        if (valor.trim().length === 0) {
+            setCorreoValido(null);
+        } else if (isValidEmail(valor.trim())) {
+            setCorreoValido(true);
+            setCorreoError('');
+        } else {
+            setCorreoValido(false);
+            setCorreoError('Formato de correo inválido (ej: nombre@dominio.com)');
+        }
+    };
 
     const handleLogin = async () => {
         // Limpiar errores previos
@@ -84,17 +100,25 @@ export default function LoginScreen({ navigation }) {
 
                     <View style={styles.inputGroup}>
                         <Text style={styles.label}>{t.email}</Text>
-                        <TextInput
-                            style={styles.input}
-                            value={correo}
-                            onChangeText={(v) => { setCorreo(v); setCorreoError(''); }}
-                            placeholder="correo@ejemplo.com"
-                            placeholderTextColor={COLORS.textLight}
-                            keyboardType="email-address"
-                            autoCapitalize="none"
-                            autoCorrect={false}
-                            maxLength={150}  // Límite de longitud en campo
-                        />
+                        <View style={[
+                            styles.inputWrapper,
+                            correoValido === true && styles.inputWrapperValid,
+                            correoValido === false && styles.inputWrapperError,
+                        ]}>
+                            <TextInput
+                                style={styles.input}
+                                value={correo}
+                                onChangeText={onCorreoChange}
+                                placeholder="correo@ejemplo.com"
+                                placeholderTextColor={COLORS.textLight}
+                                keyboardType="email-address"
+                                autoCapitalize="none"
+                                autoCorrect={false}
+                                maxLength={150}
+                            />
+                            {correoValido === true && <Text style={styles.inputIcon}>✅</Text>}
+                            {correoValido === false && <Text style={styles.inputIcon}>❌</Text>}
+                        </View>
                         {correoError ? <Text style={styles.fieldError}>{correoError}</Text> : null}
                     </View>
 
@@ -184,7 +208,16 @@ const styles = StyleSheet.create({
         fontSize: 15, color: COLORS.textPrimary,
         borderWidth: 1.5, borderColor: COLORS.border,
     },
-    fieldError: { color: COLORS.error, fontSize: 12, marginTop: 4 },
+    fieldError: { color: '#D32F2F', fontSize: 12, marginTop: 4 },
+    inputWrapper: {
+        flexDirection: 'row', alignItems: 'center',
+        backgroundColor: COLORS.surfaceGray, borderRadius: 12,
+        borderWidth: 1.5, borderColor: COLORS.border,
+        overflow: 'hidden',
+    },
+    inputWrapperValid: { borderColor: '#2E7D32' },
+    inputWrapperError: { borderColor: '#D32F2F' },
+    inputIcon: { fontSize: 16, paddingRight: SPACING.sm },
     passwordContainer: {
         flexDirection: 'row', alignItems: 'center',
         backgroundColor: COLORS.surfaceGray, borderRadius: 12,

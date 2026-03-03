@@ -7,7 +7,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { COLORS, SPACING, SHADOWS } from '../constants/theme';
-import { validateRegistro, sanitize } from '../utils/validation';
+import { validateRegistro, sanitize, isValidEmail } from '../utils/validation';
 import { getErrorMessage, logError } from '../utils/errorHandler';
 
 export default function RegistroScreen({ navigation }) {
@@ -15,15 +15,30 @@ export default function RegistroScreen({ navigation }) {
     const [correo, setCorreo] = useState('');
     const [password, setPassword] = useState('');
     const [cargando, setCargando] = useState(false);
+    const [correoValido, setCorreoValido] = useState(null); // null=sin tocar, true=válido, false=inválido
+    const [correoError, setCorreoError] = useState('');
+
     const { registro } = useAuth();
     const { t } = useLanguage();
 
+    // Validación en tiempo real del correo
+    const onCorreoChange = (valor) => {
+        setCorreo(valor);
+        setCorreoError('');
+        if (valor.trim().length === 0) {
+            setCorreoValido(null);
+        } else if (isValidEmail(valor.trim())) {
+            setCorreoValido(true);
+        } else {
+            setCorreoValido(false);
+            setCorreoError('Formato inválido (ej: nombre@dominio.com)');
+        }
+    };
+
     const handleRegistro = async () => {
-        // Sanitizar entradas
         const nombreSanitizado = sanitize(nombre);
         const correoSanitizado = sanitize(correo);
 
-        // Validar antes de enviar al servidor
         const { valid, error } = validateRegistro(nombreSanitizado, correoSanitizado, password);
         if (!valid) {
             Alert.alert(t.error, error);
@@ -56,6 +71,8 @@ export default function RegistroScreen({ navigation }) {
                 </View>
 
                 <View style={styles.card}>
+
+                    {/* Nombre */}
                     <View style={styles.inputGroup}>
                         <Text style={styles.label}>{t.name}</Text>
                         <TextInput
@@ -65,24 +82,36 @@ export default function RegistroScreen({ navigation }) {
                             placeholder="Juan García"
                             placeholderTextColor={COLORS.textLight}
                             maxLength={100}
+                            autoCorrect={false}
                         />
                     </View>
 
+                    {/* Correo con validación inline */}
                     <View style={styles.inputGroup}>
                         <Text style={styles.label}>{t.email}</Text>
-                        <TextInput
-                            style={styles.input}
-                            value={correo}
-                            onChangeText={setCorreo}
-                            placeholder="correo@ejemplo.com"
-                            placeholderTextColor={COLORS.textLight}
-                            keyboardType="email-address"
-                            autoCapitalize="none"
-                            autoCorrect={false}
-                            maxLength={150}
-                        />
+                        <View style={[
+                            styles.inputWrapper,
+                            correoValido === true && styles.inputWrapperValid,
+                            correoValido === false && styles.inputWrapperError,
+                        ]}>
+                            <TextInput
+                                style={styles.inputInner}
+                                value={correo}
+                                onChangeText={onCorreoChange}
+                                placeholder="correo@ejemplo.com"
+                                placeholderTextColor={COLORS.textLight}
+                                keyboardType="email-address"
+                                autoCapitalize="none"
+                                autoCorrect={false}
+                                maxLength={150}
+                            />
+                            {correoValido === true && <Text style={styles.inputIcon}>✅</Text>}
+                            {correoValido === false && <Text style={styles.inputIcon}>❌</Text>}
+                        </View>
+                        {correoError ? <Text style={styles.fieldError}>{correoError}</Text> : null}
                     </View>
 
+                    {/* Contraseña */}
                     <View style={styles.inputGroup}>
                         <Text style={styles.label}>{t.password}</Text>
                         <TextInput
@@ -132,12 +161,32 @@ const styles = StyleSheet.create({
     },
     inputGroup: { marginBottom: SPACING.md },
     label: { fontSize: 13, fontWeight: '600', color: COLORS.textSecondary, marginBottom: SPACING.xs },
+
+    // Campo normal
     input: {
         backgroundColor: COLORS.surfaceGray, borderRadius: 12,
         paddingHorizontal: SPACING.md, paddingVertical: 14,
         fontSize: 15, color: COLORS.textPrimary,
         borderWidth: 1.5, borderColor: COLORS.border,
     },
+
+    // Wrapper del correo con borde dinámico
+    inputWrapper: {
+        flexDirection: 'row', alignItems: 'center',
+        backgroundColor: COLORS.surfaceGray, borderRadius: 12,
+        borderWidth: 1.5, borderColor: COLORS.border,
+        overflow: 'hidden',
+    },
+    inputWrapperValid: { borderColor: '#2E7D32' },
+    inputWrapperError: { borderColor: '#D32F2F' },
+    inputInner: {
+        flex: 1,
+        paddingHorizontal: SPACING.md, paddingVertical: 14,
+        fontSize: 15, color: COLORS.textPrimary,
+    },
+    inputIcon: { fontSize: 16, paddingRight: SPACING.sm },
+    fieldError: { color: '#D32F2F', fontSize: 12, marginTop: 4 },
+
     button: {
         backgroundColor: COLORS.primary, borderRadius: 14,
         paddingVertical: 16, alignItems: 'center', marginTop: SPACING.sm, ...SHADOWS.medium,
