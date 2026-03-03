@@ -5,9 +5,9 @@ const obtenerTodos = async (req, res) => {
     try {
         const [rows] = await pool.execute(
             `SELECT p.*, u.nombre as usuario_nombre 
-       FROM plaguicidas p 
-       JOIN usuarios u ON p.user_id = u.id 
-       ORDER BY p.created_at DESC`
+             FROM plaguicidas p 
+             JOIN usuarios u ON p.user_id = u.id 
+             ORDER BY p.created_at DESC`
         );
         res.json({ success: true, data: rows });
     } catch (error) {
@@ -35,14 +35,24 @@ const obtenerUno = async (req, res) => {
 
 // POST /api/plaguicidas
 const crear = async (req, res) => {
-    const { nombre, tipo } = req.body;
+    const { nombre, tipo, dosis, unidad } = req.body;
     const user_id = req.usuario.id;
 
-    if (!nombre || !tipo) {
-        return res.status(400).json({ success: false, mensaje: 'Nombre y tipo son requeridos.' });
+    if (!nombre || !tipo || dosis === undefined || !unidad) {
+        return res.status(400).json({
+            success: false,
+            mensaje: 'Nombre, tipo, dosis y unidad son requeridos.'
+        });
     }
 
-    // Si se subió una imagen, obtener su URL
+    const unidadesPermitidas = ['ml/ha', 'L/ha', 'g/ha', 'kg/ha', 'oz/ha'];
+    if (!unidadesPermitidas.includes(unidad)) {
+        return res.status(400).json({
+            success: false,
+            mensaje: `Unidad no válida. Permitidas: ${unidadesPermitidas.join(', ')}.`
+        });
+    }
+
     let imagen_url = null;
     if (req.file) {
         imagen_url = `/uploads/${req.file.filename}`;
@@ -50,8 +60,8 @@ const crear = async (req, res) => {
 
     try {
         const [result] = await pool.execute(
-            'INSERT INTO plaguicidas (nombre, tipo, imagen_url, user_id) VALUES (?, ?, ?, ?)',
-            [nombre, tipo, imagen_url, user_id]
+            'INSERT INTO plaguicidas (nombre, tipo, dosis, unidad, imagen_url, user_id) VALUES (?, ?, ?, ?, ?, ?)',
+            [nombre, tipo, dosis, unidad, imagen_url, user_id]
         );
 
         const [nuevo] = await pool.execute('SELECT * FROM plaguicidas WHERE id = ?', [result.insertId]);
@@ -64,11 +74,20 @@ const crear = async (req, res) => {
 
 // PUT /api/plaguicidas/:id
 const actualizar = async (req, res) => {
-    const { nombre, tipo } = req.body;
+    const { nombre, tipo, dosis, unidad } = req.body;
     const { id } = req.params;
 
+    if (unidad) {
+        const unidadesPermitidas = ['ml/ha', 'L/ha', 'g/ha', 'kg/ha', 'oz/ha'];
+        if (!unidadesPermitidas.includes(unidad)) {
+            return res.status(400).json({
+                success: false,
+                mensaje: `Unidad no válida. Permitidas: ${unidadesPermitidas.join(', ')}.`
+            });
+        }
+    }
+
     try {
-        // Verificar que existe
         const [existing] = await pool.execute('SELECT * FROM plaguicidas WHERE id = ?', [id]);
         if (existing.length === 0) {
             return res.status(404).json({ success: false, mensaje: 'Plaguicida no encontrado.' });
@@ -80,8 +99,15 @@ const actualizar = async (req, res) => {
         }
 
         await pool.execute(
-            'UPDATE plaguicidas SET nombre = ?, tipo = ?, imagen_url = ?, updated_at = NOW() WHERE id = ?',
-            [nombre || existing[0].nombre, tipo || existing[0].tipo, imagen_url, id]
+            'UPDATE plaguicidas SET nombre = ?, tipo = ?, dosis = ?, unidad = ?, imagen_url = ?, updated_at = NOW() WHERE id = ?',
+            [
+                nombre  || existing[0].nombre,
+                tipo    || existing[0].tipo,
+                dosis   !== undefined ? dosis : existing[0].dosis,
+                unidad  || existing[0].unidad,
+                imagen_url,
+                id
+            ]
         );
 
         const [actualizado] = await pool.execute('SELECT * FROM plaguicidas WHERE id = ?', [id]);
