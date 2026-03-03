@@ -11,7 +11,10 @@
 
 const bcrypt = require('bcrypt');
 const mysql2 = require('mysql2/promise');
+// ⚠️ dotenv DEBE cargarse ANTES que encryption.js
 require('dotenv').config();
+const { cifrar } = require('./config/encryption');
+
 
 const SALT_ROUNDS = 10;
 
@@ -107,18 +110,26 @@ async function seed() {
         const userId = rowsUser[0].id;
 
         await pool.execute('DELETE FROM calculos WHERE user_id = ?', [userId]);
-        const calculos = [
-            [100, 200, 2.5, 5.0, 'Parcela norte - maíz'],
-            [50, 80, 3.0, 1.2, 'Invernadero tomate'],
-            [300, 150, 1.8, 8.1, 'Campo sur - frijol'],
+        const calculosData = [
+            { ancho: 100, largo: 200, dosis: 2.5, notas: 'Parcela norte - maíz' },
+            { ancho: 50, largo: 80, dosis: 3.0, notas: 'Invernadero tomate' },
+            { ancho: 300, largo: 150, dosis: 1.8, notas: 'Campo sur - frijol' },
         ];
-        for (const [ancho, largo, dosis, resultado, notas] of calculos) {
+        for (const c of calculosData) {
+            const resultado = (c.ancho * c.largo * c.dosis) / 10000;
             await pool.execute(
                 'INSERT INTO calculos (ancho, largo, dosis, resultado, notas, user_id) VALUES (?, ?, ?, ?, ?, ?)',
-                [ancho, largo, dosis, resultado, notas, userId]
+                [
+                    cifrar(c.ancho),
+                    cifrar(c.largo),
+                    cifrar(c.dosis),
+                    cifrar(resultado),
+                    cifrar(c.notas),
+                    userId
+                ]
             );
         }
-        console.log(`✅ ${calculos.length} cálculos de ejemplo insertados`);
+        console.log(`✅ ${calculosData.length} cálculos de ejemplo insertados (cifrados en BD)`);
 
         await pool.execute('DELETE FROM eventos WHERE user_id = ?', [userId]);
         const hoy = new Date();
