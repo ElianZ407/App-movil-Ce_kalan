@@ -7,26 +7,41 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { COLORS, SPACING, SHADOWS } from '../constants/theme';
+import { validateLogin, sanitize } from '../utils/validation';
+import { getErrorMessage, logError } from '../utils/errorHandler';
 
 export default function LoginScreen({ navigation }) {
     const [correo, setCorreo] = useState('');
     const [password, setPassword] = useState('');
     const [cargando, setCargando] = useState(false);
     const [mostrarPassword, setMostrarPassword] = useState(false);
+    const [correoError, setCorreoError] = useState('');
 
     const { login } = useAuth();
     const { t, idioma, cambiarIdioma } = useLanguage();
 
     const handleLogin = async () => {
-        if (!correo.trim() || !password.trim()) {
-            Alert.alert(t.error, t.required);
+        // Limpiar errores previos
+        setCorreoError('');
+
+        // Sanitizar entradas antes de validar
+        const correoSanitizado = sanitize(correo);
+
+        // Validar ANTES de enviar al servidor
+        const { valid, error } = validateLogin(correoSanitizado, password);
+        if (!valid) {
+            Alert.alert(t.error, error);
             return;
         }
+
         setCargando(true);
         try {
-            await login(correo.trim(), password);
-        } catch (error) {
-            const msg = error?.response?.data?.mensaje || t.loginError;
+            await login(correoSanitizado, password);
+            // Login exitoso → la navegación la maneja AppNavigator automáticamente
+        } catch (err) {
+            logError('LoginScreen.handleLogin', err);
+            // Mensaje amigable, sin detalles técnicos
+            const msg = getErrorMessage(err, 'No se pudo iniciar sesión. Verifica tus credenciales.');
             Alert.alert(t.error, msg);
         } finally {
             setCargando(false);
@@ -40,7 +55,6 @@ export default function LoginScreen({ navigation }) {
         >
             <StatusBar barStyle="light-content" backgroundColor={COLORS.primaryDark} />
             <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-                {/* Header con degradado visual */}
                 <View style={styles.header}>
                     <View style={styles.logoContainer}>
                         <Text style={styles.logoEmoji}>🌿</Text>
@@ -65,7 +79,6 @@ export default function LoginScreen({ navigation }) {
                     </View>
                 </View>
 
-                {/* Formulario */}
                 <View style={styles.card}>
                     <Text style={styles.cardTitle}>{t.login}</Text>
 
@@ -74,13 +87,15 @@ export default function LoginScreen({ navigation }) {
                         <TextInput
                             style={styles.input}
                             value={correo}
-                            onChangeText={setCorreo}
+                            onChangeText={(v) => { setCorreo(v); setCorreoError(''); }}
                             placeholder="correo@ejemplo.com"
                             placeholderTextColor={COLORS.textLight}
                             keyboardType="email-address"
                             autoCapitalize="none"
                             autoCorrect={false}
+                            maxLength={150}  // Límite de longitud en campo
                         />
+                        {correoError ? <Text style={styles.fieldError}>{correoError}</Text> : null}
                     </View>
 
                     <View style={styles.inputGroup}>
@@ -93,6 +108,7 @@ export default function LoginScreen({ navigation }) {
                                 placeholder="••••••••"
                                 placeholderTextColor={COLORS.textLight}
                                 secureTextEntry={!mostrarPassword}
+                                maxLength={128}  // Límite de longitud en campo
                             />
                             <TouchableOpacity
                                 style={styles.eyeBtn}
@@ -108,17 +124,13 @@ export default function LoginScreen({ navigation }) {
                         onPress={handleLogin}
                         disabled={cargando}
                     >
-                        {cargando ? (
-                            <ActivityIndicator color="#fff" />
-                        ) : (
-                            <Text style={styles.buttonText}>{t.login}</Text>
-                        )}
+                        {cargando
+                            ? <ActivityIndicator color="#fff" />
+                            : <Text style={styles.buttonText}>{t.login}</Text>
+                        }
                     </TouchableOpacity>
 
-                    <TouchableOpacity
-                        style={styles.linkBtn}
-                        onPress={() => navigation.navigate('Registro')}
-                    >
+                    <TouchableOpacity style={styles.linkBtn} onPress={() => navigation.navigate('Registro')}>
                         <Text style={styles.linkText}>
                             {t.noAccount}{' '}
                             <Text style={styles.linkHighlight}>{t.register}</Text>
@@ -126,7 +138,6 @@ export default function LoginScreen({ navigation }) {
                     </TouchableOpacity>
                 </View>
 
-                {/* Decoración ambiental */}
                 <View style={styles.footer}>
                     <Text style={styles.footerText}>🌱 Agricultura Responsable 🌱</Text>
                 </View>
@@ -173,6 +184,7 @@ const styles = StyleSheet.create({
         fontSize: 15, color: COLORS.textPrimary,
         borderWidth: 1.5, borderColor: COLORS.border,
     },
+    fieldError: { color: COLORS.error, fontSize: 12, marginTop: 4 },
     passwordContainer: {
         flexDirection: 'row', alignItems: 'center',
         backgroundColor: COLORS.surfaceGray, borderRadius: 12,

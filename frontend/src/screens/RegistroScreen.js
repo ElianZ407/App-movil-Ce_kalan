@@ -7,6 +7,8 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import { COLORS, SPACING, SHADOWS } from '../constants/theme';
+import { validateRegistro, sanitize } from '../utils/validation';
+import { getErrorMessage, logError } from '../utils/errorHandler';
 
 export default function RegistroScreen({ navigation }) {
     const [nombre, setNombre] = useState('');
@@ -17,19 +19,23 @@ export default function RegistroScreen({ navigation }) {
     const { t } = useLanguage();
 
     const handleRegistro = async () => {
-        if (!nombre.trim() || !correo.trim() || !password.trim()) {
-            Alert.alert(t.error, t.required);
+        // Sanitizar entradas
+        const nombreSanitizado = sanitize(nombre);
+        const correoSanitizado = sanitize(correo);
+
+        // Validar antes de enviar al servidor
+        const { valid, error } = validateRegistro(nombreSanitizado, correoSanitizado, password);
+        if (!valid) {
+            Alert.alert(t.error, error);
             return;
         }
-        if (password.length < 6) {
-            Alert.alert(t.error, 'La contraseña debe tener al menos 6 caracteres.');
-            return;
-        }
+
         setCargando(true);
         try {
-            await registro(nombre.trim(), correo.trim(), password);
-        } catch (error) {
-            const msg = error?.response?.data?.mensaje || 'Error al registrarse.';
+            await registro(nombreSanitizado, correoSanitizado, password);
+        } catch (err) {
+            logError('RegistroScreen.handleRegistro', err);
+            const msg = getErrorMessage(err, 'No se pudo completar el registro. Intenta de nuevo.');
             Alert.alert(t.error, msg);
         } finally {
             setCargando(false);
@@ -58,6 +64,7 @@ export default function RegistroScreen({ navigation }) {
                             onChangeText={setNombre}
                             placeholder="Juan García"
                             placeholderTextColor={COLORS.textLight}
+                            maxLength={100}
                         />
                     </View>
 
@@ -71,6 +78,8 @@ export default function RegistroScreen({ navigation }) {
                             placeholderTextColor={COLORS.textLight}
                             keyboardType="email-address"
                             autoCapitalize="none"
+                            autoCorrect={false}
+                            maxLength={150}
                         />
                     </View>
 
@@ -83,6 +92,7 @@ export default function RegistroScreen({ navigation }) {
                             placeholder="Mínimo 6 caracteres"
                             placeholderTextColor={COLORS.textLight}
                             secureTextEntry
+                            maxLength={128}
                         />
                     </View>
 

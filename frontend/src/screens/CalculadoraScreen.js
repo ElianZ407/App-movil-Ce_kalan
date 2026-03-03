@@ -2,13 +2,15 @@ import React, { useState, useCallback } from 'react';
 import {
     View, Text, TextInput, TouchableOpacity, StyleSheet,
     Alert, ScrollView, ActivityIndicator, KeyboardAvoidingView,
-    Platform, FlatList,
+    Platform,
 } from 'react-native';
 import axios from 'axios';
 import { useFocusEffect } from '@react-navigation/native';
 import { ENDPOINTS } from '../config/api';
 import { useLanguage } from '../context/LanguageContext';
 import { COLORS, SPACING, SHADOWS } from '../constants/theme';
+import { validateCalculadora } from '../utils/validation';
+import { getErrorMessage, logError } from '../utils/errorHandler';
 
 export default function CalculadoraScreen() {
     const [ancho, setAncho] = useState('');
@@ -26,7 +28,8 @@ export default function CalculadoraScreen() {
             const res = await axios.get(ENDPOINTS.CALCULOS);
             setHistorial(res.data.data || []);
         } catch (e) {
-            console.error('Error al cargar historial:', e);
+            logError('CalculadoraScreen.cargarHistorial', e);
+            // No mostramos error al usuario aquí para no interrumpir la experiencia
         } finally {
             setCargandoHistorial(false);
         }
@@ -35,19 +38,16 @@ export default function CalculadoraScreen() {
     useFocusEffect(useCallback(() => { cargarHistorial(); }, [cargarHistorial]));
 
     const calcular = async () => {
-        if (!ancho || !largo || !dosis) {
-            Alert.alert(t.error, t.required);
+        // Validar entradas con el utilitario de seguridad
+        const { valid, error } = validateCalculadora(ancho, largo, dosis);
+        if (!valid) {
+            Alert.alert(t.error, error);
             return;
         }
+
         const a = parseFloat(ancho);
         const l = parseFloat(largo);
         const d = parseFloat(dosis);
-
-        if (isNaN(a) || isNaN(l) || isNaN(d) || a <= 0 || l <= 0 || d <= 0) {
-            Alert.alert(t.error, 'Ingresa valores numéricos positivos.');
-            return;
-        }
-
         const area = a * l;
         const res = (area * d) / 10000;
         setResultado({ area, resultado: res });
@@ -58,7 +58,8 @@ export default function CalculadoraScreen() {
             Alert.alert(t.success, t.calculationSaved);
             cargarHistorial();
         } catch (error) {
-            Alert.alert(t.error, 'No se pudo guardar el cálculo.');
+            logError('CalculadoraScreen.calcular', error);
+            Alert.alert(t.error, getErrorMessage(error, 'No se pudo guardar el cálculo.'));
         } finally {
             setCargando(false);
         }
@@ -74,7 +75,8 @@ export default function CalculadoraScreen() {
                         await axios.delete(`${ENDPOINTS.CALCULOS}/${id}`);
                         cargarHistorial();
                     } catch (e) {
-                        Alert.alert(t.error, 'No se pudo eliminar.');
+                        logError('CalculadoraScreen.eliminarCalculo', e);
+                        Alert.alert(t.error, getErrorMessage(e, 'No se pudo eliminar el cálculo.'));
                     }
                 },
             },
@@ -107,6 +109,7 @@ export default function CalculadoraScreen() {
                                 keyboardType="decimal-pad"
                                 placeholder="0.00"
                                 placeholderTextColor={COLORS.textLight}
+                                maxLength={10}
                             />
                         </View>
                         <View style={[styles.inputGroup, { flex: 1 }]}>
@@ -118,6 +121,7 @@ export default function CalculadoraScreen() {
                                 keyboardType="decimal-pad"
                                 placeholder="0.00"
                                 placeholderTextColor={COLORS.textLight}
+                                maxLength={10}
                             />
                         </View>
                     </View>
@@ -131,6 +135,7 @@ export default function CalculadoraScreen() {
                             keyboardType="decimal-pad"
                             placeholder="0.00"
                             placeholderTextColor={COLORS.textLight}
+                            maxLength={10}
                         />
                     </View>
 

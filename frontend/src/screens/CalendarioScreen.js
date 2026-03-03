@@ -9,6 +9,8 @@ import { useFocusEffect } from '@react-navigation/native';
 import { ENDPOINTS } from '../config/api';
 import { useLanguage } from '../context/LanguageContext';
 import { COLORS, SPACING, SHADOWS } from '../constants/theme';
+import { validateEvento, limitAndSanitize } from '../utils/validation';
+import { getErrorMessage, logError } from '../utils/errorHandler';
 
 // Configuración de locale en español
 LocaleConfig.locales['es'] = {
@@ -40,7 +42,7 @@ export default function CalendarioScreen() {
             const res = await axios.get(ENDPOINTS.EVENTOS);
             setEventos(res.data.data || []);
         } catch (e) {
-            console.error('Error al cargar eventos:', e);
+            logError('CalendarioScreen.cargarEventos', e);
         } finally {
             setCargando(false);
         }
@@ -74,15 +76,20 @@ export default function CalendarioScreen() {
     };
 
     const guardarEvento = async () => {
-        if (!titulo.trim() || !diaSeleccionado) {
-            Alert.alert(t.error, 'Selecciona un día y escribe un título.');
+        // Sanitizar y validar entradas
+        const tituloSanitizado = limitAndSanitize(titulo, 200);
+        const descripcionSanitizada = limitAndSanitize(descripcion, 500);
+
+        const { valid, error } = validateEvento(tituloSanitizado, diaSeleccionado);
+        if (!valid) {
+            Alert.alert(t.error, error);
             return;
         }
         setGuardando(true);
         try {
             await axios.post(ENDPOINTS.EVENTOS, {
-                titulo: titulo.trim(),
-                descripcion: descripcion.trim(),
+                titulo: tituloSanitizado,
+                descripcion: descripcionSanitizada,
                 fecha: diaSeleccionado,
                 color: colorSeleccionado,
             });
@@ -94,7 +101,8 @@ export default function CalendarioScreen() {
             const evs = eventos.filter((ev) => ev.fecha.substring(0, 10) === diaSeleccionado);
             setEventosDelDia(evs);
         } catch (error) {
-            Alert.alert(t.error, 'No se pudo guardar el evento.');
+            logError('CalendarioScreen.guardarEvento', error);
+            Alert.alert(t.error, getErrorMessage(error, 'No se pudo guardar el evento.'));
         } finally {
             setGuardando(false);
         }
@@ -111,7 +119,8 @@ export default function CalendarioScreen() {
                         await cargarEventos();
                         setEventosDelDia((prev) => prev.filter((e) => e.id !== id));
                     } catch (e) {
-                        Alert.alert(t.error, 'No se pudo eliminar.');
+                        logError('CalendarioScreen.eliminarEvento', e);
+                        Alert.alert(t.error, getErrorMessage(e, 'No se pudo eliminar el evento.'));
                     }
                 },
             },
@@ -210,6 +219,7 @@ export default function CalendarioScreen() {
                             onChangeText={setTitulo}
                             placeholder="Ej: Aplicar fumigación"
                             placeholderTextColor={COLORS.textLight}
+                            maxLength={200}
                         />
 
                         <Text style={styles.label}>{t.eventDescription}</Text>
@@ -220,6 +230,7 @@ export default function CalendarioScreen() {
                             placeholder="Detalles del evento..."
                             placeholderTextColor={COLORS.textLight}
                             multiline
+                            maxLength={500}
                         />
 
                         <Text style={styles.label}>Color del evento</Text>
