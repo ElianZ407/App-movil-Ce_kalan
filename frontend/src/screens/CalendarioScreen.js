@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import {
     View, Text, TextInput, TouchableOpacity, StyleSheet,
     Alert, ScrollView, Modal, ActivityIndicator,
+    KeyboardAvoidingView, Platform, Keyboard,
 } from 'react-native';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
 import axios from 'axios';
@@ -206,65 +207,83 @@ export default function CalendarioScreen() {
             </ScrollView>
 
             {/* Modal para nuevo evento */}
-            <Modal visible={modalVisible} transparent animationType="slide">
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalCard}>
-                        <Text style={styles.modalTitle}>{t.addEvent}</Text>
-                        <Text style={styles.modalDate}>📅 {diaSeleccionado}</Text>
-
-                        <Text style={styles.label}>{t.eventTitle}</Text>
-                        <TextInput
-                            style={styles.input}
-                            value={titulo}
-                            onChangeText={setTitulo}
-                            placeholder="Ej: Aplicar fumigación"
-                            placeholderTextColor={COLORS.textLight}
-                            maxLength={200}
-                        />
-
-                        <Text style={styles.label}>{t.eventDescription}</Text>
-                        <TextInput
-                            style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
-                            value={descripcion}
-                            onChangeText={setDescripcion}
-                            placeholder="Detalles del evento..."
-                            placeholderTextColor={COLORS.textLight}
-                            multiline
-                            maxLength={500}
-                        />
-
-                        <Text style={styles.label}>Color del evento</Text>
-                        <View style={styles.colorRow}>
-                            {COLORS_EVENTS.map((c) => (
-                                <TouchableOpacity
-                                    key={c}
-                                    style={[
-                                        styles.colorDot,
-                                        { backgroundColor: c },
-                                        colorSeleccionado === c && styles.colorDotSelected,
-                                    ]}
-                                    onPress={() => setColorSeleccionado(c)}
-                                />
-                            ))}
-                        </View>
-
-                        <View style={styles.modalActions}>
-                            <TouchableOpacity style={styles.cancelBtn} onPress={() => setModalVisible(false)}>
-                                <Text style={styles.cancelBtnText}>{t.cancel}</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[styles.saveBtn, guardando && { opacity: 0.6 }]}
-                                onPress={guardarEvento}
-                                disabled={guardando}
+            <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={() => setModalVisible(false)}>
+                <KeyboardAvoidingView
+                    style={{ flex: 1 }}
+                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                >
+                    <TouchableOpacity
+                        style={styles.modalOverlay}
+                        activeOpacity={1}
+                        onPress={Keyboard.dismiss}
+                    >
+                        <TouchableOpacity activeOpacity={1} style={styles.modalCard}>
+                            <ScrollView
+                                keyboardShouldPersistTaps="handled"
+                                showsVerticalScrollIndicator={false}
+                                bounces={false}
                             >
-                                {guardando
-                                    ? <ActivityIndicator color="#fff" />
-                                    : <Text style={styles.saveBtnText}>{t.save}</Text>
-                                }
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                </View>
+                                <Text style={styles.modalTitle}>{t.addEvent}</Text>
+                                <Text style={styles.modalDate}>📅 {diaSeleccionado}</Text>
+
+                                <Text style={styles.label}>{t.eventTitle}</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    value={titulo}
+                                    onChangeText={setTitulo}
+                                    placeholder="Ej: Aplicar fumigación"
+                                    placeholderTextColor={COLORS.textLight}
+                                    maxLength={200}
+                                    returnKeyType="next"
+                                />
+
+                                <Text style={styles.label}>{t.eventDescription}</Text>
+                                <TextInput
+                                    style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
+                                    value={descripcion}
+                                    onChangeText={setDescripcion}
+                                    placeholder="Detalles del evento..."
+                                    placeholderTextColor={COLORS.textLight}
+                                    multiline
+                                    maxLength={500}
+                                    returnKeyType="done"
+                                    onSubmitEditing={Keyboard.dismiss}
+                                />
+
+                                <Text style={styles.label}>Color del evento</Text>
+                                <View style={styles.colorRow}>
+                                    {COLORS_EVENTS.map((c) => (
+                                        <TouchableOpacity
+                                            key={c}
+                                            style={[
+                                                styles.colorDot,
+                                                { backgroundColor: c },
+                                                colorSeleccionado === c && styles.colorDotSelected,
+                                            ]}
+                                            onPress={() => setColorSeleccionado(c)}
+                                        />
+                                    ))}
+                                </View>
+
+                                <View style={styles.modalActions}>
+                                    <TouchableOpacity style={styles.cancelBtn} onPress={() => setModalVisible(false)}>
+                                        <Text style={styles.cancelBtnText}>{t.cancel}</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={[styles.saveBtn, guardando && { opacity: 0.6 }]}
+                                        onPress={guardarEvento}
+                                        disabled={guardando}
+                                    >
+                                        {guardando
+                                            ? <ActivityIndicator color="#fff" />
+                                            : <Text style={styles.saveBtnText}>{t.save}</Text>
+                                        }
+                                    </TouchableOpacity>
+                                </View>
+                            </ScrollView>
+                        </TouchableOpacity>
+                    </TouchableOpacity>
+                </KeyboardAvoidingView>
             </Modal>
         </View>
     );

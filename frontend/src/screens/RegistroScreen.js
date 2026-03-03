@@ -48,6 +48,15 @@ export default function RegistroScreen({ navigation }) {
         setCargando(true);
         try {
             await registro(nombreSanitizado, correoSanitizado, password);
+            // ✅ Registro exitoso → ir al Login (no auto-login)
+            Alert.alert(
+                '✅ Cuenta creada',
+                'Tu cuenta fue creada correctamente. Inicia sesión con tus credenciales.',
+                [{
+                    text: 'Ir al Login',
+                    onPress: () => navigation.navigate('Login'),
+                }]
+            );
         } catch (err) {
             logError('RegistroScreen.handleRegistro', err);
             const msg = getErrorMessage(err, 'No se pudo completar el registro. Intenta de nuevo.');

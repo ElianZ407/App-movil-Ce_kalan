@@ -33,4 +33,6 @@ export const ENDPOINTS = {
     PLAGUICIDAS: `${API_BASE_URL}/plaguicidas`,
     CALCULOS: `${API_BASE_URL}/calculos`,
     EVENTOS: `${API_BASE_URL}/eventos`,
+    STATS: `${API_BASE_URL}/stats`,
+    STOCK_ACTUALIZAR: (id) => `${API_BASE_URL}/plaguicidas/${id}/stock`,
 };

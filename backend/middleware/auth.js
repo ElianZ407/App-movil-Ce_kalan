@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
-require('dotenv').config();
+// dotenv ya fue cargado en server.js con el path correcto
+
 
 const verificarToken = (req, res, next) => {
     const authHeader = req.headers['authorization'];

@@ -11,7 +11,7 @@ const PORT = process.env.PORT || 3001;
 // ============================================================
 app.use(cors({
     origin: '*', // En producción, restringir a las IPs/dominios específicos
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
 }));
 app.use(express.json());
@@ -27,11 +27,13 @@ const authRoutes = require('./routes/auth');
 const plaguicidasRoutes = require('./routes/plaguicidas');
 const calculosRoutes = require('./routes/calculos');
 const eventosRoutes = require('./routes/eventos');
+const statsRoutes = require('./routes/stats');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/plaguicidas', plaguicidasRoutes);
 app.use('/api/calculos', calculosRoutes);
 app.use('/api/eventos', eventosRoutes);
+app.use('/api/stats', statsRoutes);
 
 // Ruta de bienvenida
 app.get('/', (req, res) => {
@@ -79,6 +81,9 @@ app.listen(PORT, '0.0.0.0', () => {
     console.log(`✅ Servidor corriendo en: http://localhost:${PORT}`);
     console.log(`📱 Para Expo Go usa tu IP local: http://TU_IP_LOCAL:${PORT}`);
     console.log('   (Ej: http://192.168.1.X:3001)');
+    // Diagnóstico de seguridad: confirmar que JWT_SECRET cargó correctamente
+    const secretCargado = process.env.JWT_SECRET;
+    console.log(`🔑 JWT_SECRET: ${secretCargado ? '✅ Cargado (' + secretCargado.substring(0, 6) + '...)' : '❌ NO ENCONTRADO - revisar .env'}`);
     console.log('🌿 ====================================');
     console.log('');
 });

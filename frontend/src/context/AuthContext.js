@@ -19,29 +19,56 @@ export const AuthProvider = ({ children }) => {
     const [token, setToken] = useState(null);
     const [cargando, setCargando] = useState(true);
 
-    // Cargar sesión guardada de forma cifrada al iniciar
+    // ── Política de seguridad: login obligatorio al iniciar la app ────────
+    // Por seguridad, la sesión NO se restaura automáticamente entre reinicios.
+    // El token se cifra en SecureStore durante la sesión activa (cumpliendo
+    // el requisito de cifrado en reposo), pero se limpia al cerrar la app.
     useEffect(() => {
-        const cargarSesion = async () => {
+        const iniciarApp = async () => {
             try {
-                const tokenGuardado = await SecureStore.getItemAsync(TOKEN_KEY);
-                const usuarioGuardado = await SecureStore.getItemAsync(USUARIO_KEY);
-
-                if (tokenGuardado && usuarioGuardado) {
-                    setToken(tokenGuardado);
-                    setUsuario(JSON.parse(usuarioGuardado));
-                    axios.defaults.headers.common['Authorization'] = `Bearer ${tokenGuardado}`;
-                }
+                // Siempre limpiar sesión guardada → forzar login manual
+                await SecureStore.deleteItemAsync(TOKEN_KEY);
+                await SecureStore.deleteItemAsync(USUARIO_KEY);
+                delete axios.defaults.headers.common['Authorization'];
             } catch (error) {
-                // No exponemos detalles del error al usuario
-                if (__DEV__) console.warn('[Ce-Kalan] Error al cargar sesión segura:', error?.message);
-                // Si el SecureStore falla, limpiamos la sesión por seguridad
-                await _limpiarSesion();
+                if (__DEV__) console.warn('[Ce-Kalan] Error al limpiar sesión inicial:', error?.message);
             } finally {
+                // usuario y token quedan en null → AppNavigator muestra Login
                 setCargando(false);
             }
         };
-        cargarSesion();
+        iniciarApp();
+
+        // ── Interceptor global de axios ──────────────────────────
+        // Si el servidor responde 401 (token expirado) o 403 (token inválido)
+        // en cualquier llamada autenticada, cerramos sesión de forma segura.
+        const interceptor = axios.interceptors.response.use(
+            (response) => response,
+            async (error) => {
+                const status = error?.response?.status;
+                const isAuthEndpoint = error?.config?.url?.includes('/auth/login') ||
+                    error?.config?.url?.includes('/auth/registro');
+
+                if ((status === 401 || status === 403) && !isAuthEndpoint) {
+                    if (__DEV__) console.warn('[Ce-Kalan] Sesión inválida detectada, cerrando sesión...');
+                    try {
+                        await SecureStore.deleteItemAsync(TOKEN_KEY);
+                        await SecureStore.deleteItemAsync(USUARIO_KEY);
+                    } catch (_) { /* ignorar */ }
+                    delete axios.defaults.headers.common['Authorization'];
+                    setToken(null);
+                    setUsuario(null);
+                }
+                return Promise.reject(error);
+            }
+        );
+
+        return () => {
+            axios.interceptors.response.eject(interceptor);
+        };
     }, []);
+
+
 
     // Guarda el token y usuario de forma cifrada
     const _guardarSesion = async (nuevoToken, nuevoUsuario) => {
@@ -77,15 +104,10 @@ export const AuthProvider = ({ children }) => {
     };
 
     const registro = async (nombre, correo, password) => {
+        // Solo crea la cuenta — NO inicia sesión automáticamente.
+        // El usuario debe ir al Login y autenticarse manualmente.
         const response = await axios.post(ENDPOINTS.REGISTRO, { nombre, correo, password });
-        const { token: nuevoToken, usuario: nuevoUsuario } = response.data;
-
-        setToken(nuevoToken);
-        setUsuario(nuevoUsuario);
-        axios.defaults.headers.common['Authorization'] = `Bearer ${nuevoToken}`;
-        await _guardarSesion(nuevoToken, nuevoUsuario);
-
-        return response.data;
+        return response.data; // { success, mensaje, usuario }
     };
 
     const logout = async () => {
