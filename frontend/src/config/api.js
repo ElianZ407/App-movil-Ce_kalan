@@ -1,33 +1,38 @@
 // ============================================================
 // Ce-Kalan - Configuración de la API
 // ============================================================
-// ⚠️ PASO OBLIGATORIO: Cambia API_IP por la IP de tu PC.
+// La IP y Puerto se leen EXCLUSIVAMENTE desde el archivo .env
 //
-// Cómo encontrar tu IP en Windows:
-//   1. Abre CMD (Símbolo del sistema)
-//   2. Escribe: ipconfig
-//   3. Busca "Dirección IPv4" debajo de tu adaptador WiFi
-//      Ejemplo: 192.168.1.105
+// Para configurar:
+//   1. Copia frontend/.env.example → frontend/.env
+//   2. Edita .env y pon tu IP:
+//      EXPO_PUBLIC_API_IP=192.168.X.X
+//      EXPO_PUBLIC_API_PORT=3001
 //
-// ⚠️ Tu PC y tu iPhone deben estar en el mismo WiFi.
+// El archivo .env NUNCA debe subirse a git.
 // ============================================================
 
-const API_IP = '192.168.0.5'; // ✅ IP de tu laptop (Wi-Fi)
-const API_PORT = '3001';
+if (!process.env.EXPO_PUBLIC_API_IP) {
+    throw new Error(
+        '⚠️  EXPO_PUBLIC_API_IP no está definida.\n' +
+        'Crea el archivo frontend/.env con tu IP local.\n' +
+        'Ejemplo: EXPO_PUBLIC_API_IP=192.168.0.5'
+    );
+}
+
+const API_IP = process.env.EXPO_PUBLIC_API_IP;
+const API_PORT = process.env.EXPO_PUBLIC_API_PORT || '3001';
 
 export const API_BASE_URL = `http://${API_IP}:${API_PORT}/api`;
 export const UPLOADS_BASE_URL = `http://${API_IP}:${API_PORT}`;
 
-// Endpoints
 export const ENDPOINTS = {
-    // Auth
     LOGIN: `${API_BASE_URL}/auth/login`,
     REGISTRO: `${API_BASE_URL}/auth/registro`,
     PERFIL: `${API_BASE_URL}/auth/perfil`,
-    // Plaguicidas
     PLAGUICIDAS: `${API_BASE_URL}/plaguicidas`,
-    // Cálculos
     CALCULOS: `${API_BASE_URL}/calculos`,
-    // Eventos
     EVENTOS: `${API_BASE_URL}/eventos`,
+    STATS: `${API_BASE_URL}/stats`,
+    STOCK_ACTUALIZAR: (id) => `${API_BASE_URL}/plaguicidas/${id}/stock`,
 };

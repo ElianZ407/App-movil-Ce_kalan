@@ -35,13 +35,16 @@ CREATE TABLE IF NOT EXISTS plaguicidas (
 -- ============================================================
 -- Tabla: calculos
 -- ============================================================
+-- NOTA: Los campos ancho, largo, dosis, resultado y notas se almacenan
+-- cifrados con AES-256-GCM (formato: iv:authTag:ciphertext en hex).
+-- El backend los descifra automáticamente al leerlos.
 CREATE TABLE IF NOT EXISTS calculos (
     id INT AUTO_INCREMENT PRIMARY KEY,
     fecha DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    ancho DECIMAL(10,2) NOT NULL,
-    largo DECIMAL(10,2) NOT NULL,
-    dosis DECIMAL(10,4) NOT NULL,
-    resultado DECIMAL(12,4) NOT NULL,
+    ancho VARCHAR(500) NOT NULL,
+    largo VARCHAR(500) NOT NULL,
+    dosis VARCHAR(500) NOT NULL,
+    resultado VARCHAR(500) NOT NULL,
     notas TEXT DEFAULT NULL,
     user_id INT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -105,10 +108,9 @@ INSERT INTO plaguicidas (nombre, tipo, imagen_url, user_id) VALUES
 -- ============================================================
 -- Cálculos de ejemplo (del usuario juan, user_id = 2)
 -- ============================================================
-INSERT INTO calculos (ancho, largo, dosis, resultado, notas, user_id) VALUES
-(100.00, 200.00, 2.5000, 5.0000, 'Parcela norte - maíz', 2),
-(50.00,  80.00,  3.0000, 1.2000, 'Invernadero tomate', 2),
-(300.00, 150.00, 1.8000, 8.1000, 'Campo sur - frijol', 2);
+-- Los datos de ejemplo de cálculos deben insertarse desde el backend
+-- con seed.js para que sean cifrados correctamente con AES-256-GCM.
+-- (Ver backend/seed.js)
 
 -- ============================================================
 -- Eventos de calendario de ejemplo (user_id = 2)

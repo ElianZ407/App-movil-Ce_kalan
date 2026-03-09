@@ -34,6 +34,14 @@ const translations = {
         deletePesticide: 'Eliminar',
         editPesticide: 'Editar',
         adminOnly: 'Solo administradores pueden gestionar plaguicidas.',
+        stock: 'Stock (L)',
+        stockPlaceholder: '0.00',
+        lowStock: 'Stock bajo',
+        noStock: 'Sin stock',
+        stockAlert: 'Stock bajo detectado',
+        stockUpdate: 'Actualizar Stock',
+        stockUpdated: 'Stock actualizado correctamente.',
+        stockCurrent: 'Stock actual',
 
         // Calculator
         calculatorTitle: 'Calculadora de Dosis',
@@ -47,6 +55,8 @@ const translations = {
         historyTitle: 'Historial de Cálculos',
         area: 'Área',
         hectares: 'hectáreas',
+        shareCalc: 'Compartir resultado',
+        exportPDF: 'Exportar como PDF',
 
         // Calendar
         calendarTitle: 'Calendario de Tareas',
@@ -59,6 +69,24 @@ const translations = {
         delete: 'Eliminar',
         noEvents: 'No hay eventos para este día.',
         eventsFor: 'Eventos del',
+
+        // Dashboard
+        dashboardTitle: 'Panel Principal',
+        totalPesticides: 'Plaguicidas',
+        totalCalculations: 'Cálculos',
+        upcomingEvents: 'Próximos Eventos',
+        lastCalculation: 'Último Cálculo',
+        noRecentCalc: 'Sin cálculos aún',
+        noUpcomingEvents: 'Sin eventos próximos',
+        quickActions: 'Acciones Rápidas',
+        viewAll: 'Ver todos',
+        lowStockAlert: 'Alertas de Stock Bajo',
+        noAlerts: 'Todo el stock está bien ✓',
+
+        // Appearance
+        appearance: 'Apariencia',
+        darkMode: 'Modo Oscuro',
+        lightMode: 'Modo Claro',
 
         // General
         loading: 'Cargando...',
@@ -103,6 +131,14 @@ const translations = {
         deletePesticide: 'Delete',
         editPesticide: 'Edit',
         adminOnly: 'Only administrators can manage pesticides.',
+        stock: 'Stock (L)',
+        stockPlaceholder: '0.00',
+        lowStock: 'Low stock',
+        noStock: 'No stock',
+        stockAlert: 'Low stock detected',
+        stockUpdate: 'Update Stock',
+        stockUpdated: 'Stock updated successfully.',
+        stockCurrent: 'Current stock',
 
         // Calculator
         calculatorTitle: 'Dose Calculator',
@@ -116,6 +152,8 @@ const translations = {
         historyTitle: 'Calculation History',
         area: 'Area',
         hectares: 'hectares',
+        shareCalc: 'Share result',
+        exportPDF: 'Export as PDF',
 
         // Calendar
         calendarTitle: 'Task Calendar',
@@ -128,6 +166,24 @@ const translations = {
         delete: 'Delete',
         noEvents: 'No events for this day.',
         eventsFor: 'Events for',
+
+        // Dashboard
+        dashboardTitle: 'Dashboard',
+        totalPesticides: 'Pesticides',
+        totalCalculations: 'Calculations',
+        upcomingEvents: 'Upcoming Events',
+        lastCalculation: 'Last Calculation',
+        noRecentCalc: 'No calculations yet',
+        noUpcomingEvents: 'No upcoming events',
+        quickActions: 'Quick Actions',
+        viewAll: 'View all',
+        lowStockAlert: 'Low Stock Alerts',
+        noAlerts: 'All stock levels are fine ✓',
+
+        // Appearance
+        appearance: 'Appearance',
+        darkMode: 'Dark Mode',
+        lightMode: 'Light Mode',
 
         // General
         loading: 'Loading...',

@@ -35,7 +35,7 @@ const obtenerUno = async (req, res) => {
 
 // POST /api/plaguicidas
 const crear = async (req, res) => {
-    const { nombre, tipo } = req.body;
+    const { nombre, tipo, stock } = req.body;
     const user_id = req.usuario.id;
 
     if (!nombre || !tipo) {
@@ -48,10 +48,14 @@ const crear = async (req, res) => {
         imagen_url = `/uploads/${req.file.filename}`;
     }
 
+    // Parsear stock si fue enviado
+    const stockValue = (stock !== undefined && stock !== '' && !isNaN(parseFloat(stock)))
+        ? parseFloat(stock) : null;
+
     try {
         const [result] = await pool.execute(
-            'INSERT INTO plaguicidas (nombre, tipo, imagen_url, user_id) VALUES (?, ?, ?, ?)',
-            [nombre, tipo, imagen_url, user_id]
+            'INSERT INTO plaguicidas (nombre, tipo, imagen_url, stock, user_id) VALUES (?, ?, ?, ?, ?)',
+            [nombre, tipo, imagen_url, stockValue, user_id]
         );
 
         const [nuevo] = await pool.execute('SELECT * FROM plaguicidas WHERE id = ?', [result.insertId]);
@@ -64,7 +68,7 @@ const crear = async (req, res) => {
 
 // PUT /api/plaguicidas/:id
 const actualizar = async (req, res) => {
-    const { nombre, tipo } = req.body;
+    const { nombre, tipo, stock } = req.body;
     const { id } = req.params;
 
     try {
@@ -79,9 +83,12 @@ const actualizar = async (req, res) => {
             imagen_url = `/uploads/${req.file.filename}`;
         }
 
+        const stockValue = (stock !== undefined && stock !== '' && !isNaN(parseFloat(stock)))
+            ? parseFloat(stock) : existing[0].stock;
+
         await pool.execute(
-            'UPDATE plaguicidas SET nombre = ?, tipo = ?, imagen_url = ?, updated_at = NOW() WHERE id = ?',
-            [nombre || existing[0].nombre, tipo || existing[0].tipo, imagen_url, id]
+            'UPDATE plaguicidas SET nombre = ?, tipo = ?, imagen_url = ?, stock = ?, updated_at = NOW() WHERE id = ?',
+            [nombre || existing[0].nombre, tipo || existing[0].tipo, imagen_url, stockValue, id]
         );
 
         const [actualizado] = await pool.execute('SELECT * FROM plaguicidas WHERE id = ?', [id]);
@@ -89,6 +96,40 @@ const actualizar = async (req, res) => {
     } catch (error) {
         console.error('Error al actualizar plaguicida:', error);
         res.status(500).json({ success: false, mensaje: 'Error al actualizar plaguicida.' });
+    }
+};
+
+// PATCH /api/plaguicidas/:id/stock — Actualizar solo el stock
+const actualizarStock = async (req, res) => {
+    const { stock } = req.body;
+    const { id } = req.params;
+
+    if (stock === undefined || isNaN(parseFloat(stock)) || parseFloat(stock) < 0) {
+        return res.status(400).json({ success: false, mensaje: 'Stock inválido. Debe ser un número >= 0.' });
+    }
+
+    try {
+        const [existing] = await pool.execute('SELECT * FROM plaguicidas WHERE id = ?', [id]);
+        if (existing.length === 0) {
+            return res.status(404).json({ success: false, mensaje: 'Plaguicida no encontrado.' });
+        }
+
+        const nuevoStock = parseFloat(stock);
+        await pool.execute(
+            'UPDATE plaguicidas SET stock = ?, updated_at = NOW() WHERE id = ?',
+            [nuevoStock, id]
+        );
+
+        const stockBajo = nuevoStock < 5;
+        res.json({
+            success: true,
+            mensaje: 'Stock actualizado correctamente.',
+            stock: nuevoStock,
+            alertaBajoStock: stockBajo,
+        });
+    } catch (error) {
+        console.error('Error al actualizar stock:', error);
+        res.status(500).json({ success: false, mensaje: 'Error al actualizar el stock.' });
     }
 };
 
@@ -108,4 +149,4 @@ const eliminar = async (req, res) => {
     }
 };
 
-module.exports = { obtenerTodos, obtenerUno, crear, actualizar, eliminar };
+module.exports = { obtenerTodos, obtenerUno, crear, actualizar, eliminar, actualizarStock };

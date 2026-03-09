@@ -1,14 +1,16 @@
 import React from 'react';
 import {
-    View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert,
+    View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, Switch, StatusBar,
 } from 'react-native';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
+import { useTheme } from '../context/ThemeContext';
 import { COLORS, SPACING, SHADOWS } from '../constants/theme';
 
 export default function PerfilScreen() {
     const { usuario, logout, esAdmin } = useAuth();
     const { t, idioma, cambiarIdioma } = useLanguage();
+    const { isDark, colors, toggleTheme } = useTheme();
 
     const handleLogout = () => {
         Alert.alert(t.logout, '¿Deseas cerrar sesión?', [
@@ -18,9 +20,16 @@ export default function PerfilScreen() {
     };
 
     return (
-        <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        <ScrollView
+            style={[styles.container, { backgroundColor: colors.background }]}
+            contentContainerStyle={styles.content}
+        >
+            <StatusBar
+                barStyle="light-content"
+                backgroundColor={colors.primaryDark}
+            />
             {/* Header */}
-            <View style={styles.headerBg}>
+            <View style={[styles.headerBg, { backgroundColor: colors.primaryDark }]}>
                 <View style={styles.avatarCircle}>
                     <Text style={styles.avatarEmoji}>
                         {esAdmin() ? '👨‍💼' : '👨‍🌾'}
@@ -35,30 +44,53 @@ export default function PerfilScreen() {
             </View>
 
             {/* Info Card */}
-            <View style={styles.card}>
-                <Text style={styles.cardTitle}>📋 Información de cuenta</Text>
+            <View style={[styles.card, { backgroundColor: colors.surface }]}>
+                <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>📋 Información de cuenta</Text>
                 <View style={styles.infoRow}>
                     <Text style={styles.infoIcon}>📧</Text>
                     <View>
-                        <Text style={styles.infoLabel}>Correo</Text>
-                        <Text style={styles.infoValue}>{usuario?.correo}</Text>
+                        <Text style={[styles.infoLabel, { color: colors.textLight }]}>Correo</Text>
+                        <Text style={[styles.infoValue, { color: colors.textPrimary }]}>{usuario?.correo}</Text>
                     </View>
                 </View>
-                <View style={styles.divider} />
+                <View style={[styles.divider, { backgroundColor: colors.border }]} />
                 <View style={styles.infoRow}>
                     <Text style={styles.infoIcon}>🔐</Text>
                     <View>
-                        <Text style={styles.infoLabel}>Tipo de cuenta</Text>
-                        <Text style={[styles.infoValue, esAdmin() && { color: COLORS.secondary }]}>
+                        <Text style={[styles.infoLabel, { color: colors.textLight }]}>Tipo de cuenta</Text>
+                        <Text style={[styles.infoValue, { color: esAdmin() ? colors.secondary : colors.textPrimary }]}>
                             {esAdmin() ? 'Administrador' : 'Usuario estándar'}
                         </Text>
                     </View>
                 </View>
             </View>
 
+            {/* Apariencia - Modo Oscuro */}
+            <View style={[styles.card, { backgroundColor: colors.surface }]}>
+                <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>
+                    {isDark ? '🌙' : '☀️'} {t.appearance}
+                </Text>
+                <View style={styles.toggleRow}>
+                    <View>
+                        <Text style={[styles.toggleLabel, { color: colors.textPrimary }]}>
+                            {isDark ? t.darkMode : t.lightMode}
+                        </Text>
+                        <Text style={[styles.toggleSub, { color: colors.textLight }]}>
+                            {isDark ? 'Tema oscuro activo' : 'Tema claro activo'}
+                        </Text>
+                    </View>
+                    <Switch
+                        value={isDark}
+                        onValueChange={toggleTheme}
+                        trackColor={{ false: colors.border, true: colors.primary + '88' }}
+                        thumbColor={isDark ? colors.primary : colors.textLight}
+                    />
+                </View>
+            </View>
+
             {/* Selector de idioma */}
-            <View style={styles.card}>
-                <Text style={styles.cardTitle}>🌐 {t.language}</Text>
+            <View style={[styles.card, { backgroundColor: colors.surface }]}>
+                <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>🌐 {t.language}</Text>
                 <View style={styles.langRow}>
                     <TouchableOpacity
                         style={[styles.langBtn, idioma === 'es' && styles.langBtnActive]}
@@ -80,18 +112,21 @@ export default function PerfilScreen() {
             </View>
 
             {/* Estadísticas de la app */}
-            <View style={styles.card}>
-                <Text style={styles.cardTitle}>🌿 Ce-Kalan</Text>
-                <Text style={styles.appVersion}>Versión 1.0.0</Text>
-                <Text style={styles.appDesc}>
+            <View style={[styles.card, { backgroundColor: colors.surface }]}>
+                <Text style={[styles.cardTitle, { color: colors.textPrimary }]}>🌿 Ce-Kalan</Text>
+                <Text style={[styles.appVersion, { color: colors.textLight }]}>Versión 1.0.0</Text>
+                <Text style={[styles.appDesc, { color: colors.textSecondary }]}>
                     Herramienta agrícola de gestión de plaguicidas y cálculo de dosis.
                     Desarrollado para optimizar el manejo responsable de agroquímicos.
                 </Text>
             </View>
 
             {/* Logout */}
-            <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-                <Text style={styles.logoutBtnText}>🚪 {t.logout}</Text>
+            <TouchableOpacity
+                style={[styles.logoutBtn, { backgroundColor: colors.isDark ? '#2D1010' : '#FFEBEE', borderColor: colors.isDark ? '#5C2020' : '#FFCDD2' }]}
+                onPress={handleLogout}
+            >
+                <Text style={[styles.logoutBtnText, { color: colors.error }]}>🚪 {t.logout}</Text>
             </TouchableOpacity>
         </ScrollView>
     );
@@ -137,6 +172,12 @@ const styles = StyleSheet.create({
     langBtnActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
     langText: { color: COLORS.textSecondary, fontWeight: '600' },
     langTextActive: { color: '#fff' },
+    toggleRow: {
+        flexDirection: 'row', alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    toggleLabel: { fontSize: 15, fontWeight: '600' },
+    toggleSub: { fontSize: 12, marginTop: 2 },
     appVersion: { fontSize: 13, color: COLORS.textLight, marginBottom: SPACING.sm },
     appDesc: { fontSize: 14, color: COLORS.textSecondary, lineHeight: 20 },
     logoutBtn: {

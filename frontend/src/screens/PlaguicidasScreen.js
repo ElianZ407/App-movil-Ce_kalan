@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import {
     View, Text, TextInput, TouchableOpacity, StyleSheet,
     Alert, ScrollView, Image, ActivityIndicator, Modal,
+    KeyboardAvoidingView, Platform, Keyboard,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import axios from 'axios';
@@ -9,20 +10,27 @@ import { useFocusEffect } from '@react-navigation/native';
 import { ENDPOINTS, UPLOADS_BASE_URL } from '../config/api';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
+import { useTheme } from '../context/ThemeContext';
 import { COLORS, SPACING, SHADOWS } from '../constants/theme';
+import { getErrorMessage, logError } from '../utils/errorHandler';
 
 export default function PlaguicidasScreen() {
     const [plaguicidas, setPlaguicidas] = useState([]);
     const [cargando, setCargando] = useState(false);
     const [modalVisible, setModalVisible] = useState(false);
+    const [stockModalVisible, setStockModalVisible] = useState(false);
+    const [stockTarget, setStockTarget] = useState(null); // { id, nombre, stock }
+    const [nuevoStock, setNuevoStock] = useState('');
     const [nombre, setNombre] = useState('');
     const [tipo, setTipo] = useState('');
+    const [stock, setStock] = useState('');
     const [imagenUri, setImagenUri] = useState(null);
     const [guardando, setGuardando] = useState(false);
     const [editandoId, setEditandoId] = useState(null);
 
     const { esAdmin } = useAuth();
     const { t } = useLanguage();
+    const { colors } = useTheme();
 
     const cargarPlaguicidas = useCallback(async () => {
         setCargando(true);
@@ -43,11 +51,13 @@ export default function PlaguicidasScreen() {
             setEditandoId(item.id);
             setNombre(item.nombre);
             setTipo(item.tipo);
+            setStock(item.stock != null ? String(item.stock) : '');
             setImagenUri(item.imagen_url ? `${UPLOADS_BASE_URL}${item.imagen_url}` : null);
         } else {
             setEditandoId(null);
             setNombre('');
             setTipo('');
+            setStock('');
             setImagenUri(null);
         }
         setModalVisible(true);
@@ -57,8 +67,40 @@ export default function PlaguicidasScreen() {
         setModalVisible(false);
         setNombre('');
         setTipo('');
+        setStock('');
         setImagenUri(null);
         setEditandoId(null);
+    };
+
+    // Modal rápido de actualización de stock
+    const abrirStockModal = (item) => {
+        setStockTarget(item);
+        setNuevoStock(item.stock != null ? String(item.stock) : '0');
+        setStockModalVisible(true);
+    };
+
+    const guardarStock = async () => {
+        if (!stockTarget || nuevoStock === '' || isNaN(parseFloat(nuevoStock)) || parseFloat(nuevoStock) < 0) {
+            Alert.alert(t.error, 'Ingresa un valor de stock válido (>= 0).');
+            return;
+        }
+        setGuardando(true);
+        try {
+            const res = await axios.patch(ENDPOINTS.STOCK_ACTUALIZAR(stockTarget.id), {
+                stock: parseFloat(nuevoStock),
+            });
+            Alert.alert(t.success, t.stockUpdated);
+            if (res.data.alertaBajoStock) {
+                Alert.alert('⚠️ ' + t.stockAlert, `${stockTarget.nombre}: ${parseFloat(nuevoStock).toFixed(2)} L`);
+            }
+            setStockModalVisible(false);
+            cargarPlaguicidas();
+        } catch (e) {
+            logError('PlaguicidasScreen.guardarStock', e);
+            Alert.alert(t.error, getErrorMessage(e, 'No se pudo actualizar el stock.'));
+        } finally {
+            setGuardando(false);
+        }
     };
 
     const tomarFoto = async () => {
@@ -97,6 +139,7 @@ export default function PlaguicidasScreen() {
             const formData = new FormData();
             formData.append('nombre', nombre.trim());
             formData.append('tipo', tipo.trim());
+            if (stock !== '') formData.append('stock', stock);
 
             // Añadir imagen solo si es un URI local (nueva imagen)
             if (imagenUri && imagenUri.startsWith('file://')) {
@@ -109,9 +152,7 @@ export default function PlaguicidasScreen() {
                 });
             }
 
-            const config = {
-                headers: { 'Content-Type': 'multipart/form-data' },
-            };
+            const config = { headers: { 'Content-Type': 'multipart/form-data' } };
 
             if (editandoId) {
                 await axios.put(`${ENDPOINTS.PLAGUICIDAS}/${editandoId}`, formData, config);
@@ -123,7 +164,8 @@ export default function PlaguicidasScreen() {
             cerrarModal();
             cargarPlaguicidas();
         } catch (error) {
-            Alert.alert(t.error, error?.response?.data?.mensaje || 'Error al guardar.');
+            logError('PlaguicidasScreen.guardar', error);
+            Alert.alert(t.error, getErrorMessage(error, 'Error al guardar.'));
         } finally {
             setGuardando(false);
         }
@@ -191,19 +233,35 @@ export default function PlaguicidasScreen() {
                                 <View style={styles.typeBadge}>
                                     <Text style={styles.typeBadgeText}>{item.tipo}</Text>
                                 </View>
+                                {/* Stock badge */}
+                                {item.stock != null && (
+                                    <View style={[
+                                        styles.stockBadge,
+                                        item.stock === 0 && styles.stockBadgeEmpty,
+                                        item.stock > 0 && item.stock < 5 && styles.stockBadgeLow,
+                                        item.stock >= 5 && styles.stockBadgeOk,
+                                    ]}>
+                                        <Text style={[
+                                            styles.stockBadgeText,
+                                            item.stock === 0 && { color: COLORS.error },
+                                            item.stock > 0 && item.stock < 5 && { color: '#E65100' },
+                                            item.stock >= 5 && { color: COLORS.primary },
+                                        ]}>
+                                            {item.stock === 0 ? '🚨 ' : item.stock < 5 ? '⚠️ ' : '✅ '}
+                                            {parseFloat(item.stock).toFixed(1)} L
+                                        </Text>
+                                    </View>
+                                )}
                             </View>
                             {esAdmin() && (
                                 <View style={styles.cardActions}>
-                                    <TouchableOpacity
-                                        style={styles.editBtn}
-                                        onPress={() => abrirModal(item)}
-                                    >
+                                    <TouchableOpacity style={styles.editBtn} onPress={() => abrirModal(item)}>
                                         <Text style={styles.editBtnText}>✏️</Text>
                                     </TouchableOpacity>
-                                    <TouchableOpacity
-                                        style={styles.deleteItemBtn}
-                                        onPress={() => eliminar(item.id)}
-                                    >
+                                    <TouchableOpacity style={styles.editBtn} onPress={() => abrirStockModal(item)}>
+                                        <Text style={styles.editBtnText}>📦</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity style={styles.deleteItemBtn} onPress={() => eliminar(item.id)}>
                                         <Text style={styles.deleteItemBtnText}>🗑️</Text>
                                     </TouchableOpacity>
                                 </View>
@@ -214,51 +272,126 @@ export default function PlaguicidasScreen() {
             )}
 
             {/* Modal para crear/editar */}
-            <Modal visible={modalVisible} transparent animationType="slide">
+            <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={cerrarModal}>
+                <KeyboardAvoidingView
+                    style={{ flex: 1 }}
+                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                >
+                    <TouchableOpacity
+                        style={styles.modalOverlay}
+                        activeOpacity={1}
+                        onPress={Keyboard.dismiss}
+                    >
+                        <TouchableOpacity activeOpacity={1} style={styles.modalCard}>
+                            <ScrollView
+                                keyboardShouldPersistTaps="handled"
+                                showsVerticalScrollIndicator={false}
+                                bounces={false}
+                            >
+                                <Text style={styles.modalTitle}>
+                                    {editandoId ? t.editPesticide : t.addPesticide}
+                                </Text>
+
+                                <Text style={styles.label}>{t.pesticideName}</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    value={nombre}
+                                    onChangeText={setNombre}
+                                    placeholder="Ej: Glifosato"
+                                    placeholderTextColor={COLORS.textLight}
+                                    maxLength={150}
+                                    returnKeyType="next"
+                                />
+
+                                <Text style={styles.label}>{t.pesticideType}</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    value={tipo}
+                                    onChangeText={setTipo}
+                                    placeholder="Ej: Herbicida"
+                                    placeholderTextColor={COLORS.textLight}
+                                    maxLength={100}
+                                    returnKeyType="next"
+                                />
+
+                                <Text style={styles.label}>{t.stock}</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    value={stock}
+                                    onChangeText={setStock}
+                                    placeholder={t.stockPlaceholder}
+                                    placeholderTextColor={COLORS.textLight}
+                                    keyboardType="decimal-pad"
+                                    maxLength={10}
+                                    returnKeyType="done"
+                                    onSubmitEditing={Keyboard.dismiss}
+                                />
+
+                                <Text style={styles.label}>{t.pesticideImage}</Text>
+                                {imagenUri && (
+                                    <Image source={{ uri: imagenUri }} style={styles.previewImage} />
+                                )}
+                                <View style={styles.imageRow}>
+                                    <TouchableOpacity style={styles.imgBtn} onPress={tomarFoto}>
+                                        <Text style={styles.imgBtnText}>📷 {t.takePhoto}</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity style={styles.imgBtn} onPress={elegirFoto}>
+                                        <Text style={styles.imgBtnText}>🖼️ {t.choosePhoto}</Text>
+                                    </TouchableOpacity>
+                                </View>
+
+                                <View style={styles.modalActions}>
+                                    <TouchableOpacity style={styles.cancelBtn} onPress={cerrarModal}>
+                                        <Text style={styles.cancelBtnText}>{t.cancel}</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={[styles.saveBtn, guardando && { opacity: 0.6 }]}
+                                        onPress={guardar}
+                                        disabled={guardando}
+                                    >
+                                        {guardando
+                                            ? <ActivityIndicator color="#fff" />
+                                            : <Text style={styles.saveBtnText}>{t.save}</Text>
+                                        }
+                                    </TouchableOpacity>
+                                </View>
+                            </ScrollView>
+                        </TouchableOpacity>
+                    </TouchableOpacity>
+                </KeyboardAvoidingView>
+            </Modal>
+
+            {/* Modal rápido de actualización de Stock */}
+            <Modal visible={stockModalVisible} transparent animationType="fade">
                 <View style={styles.modalOverlay}>
-                    <View style={styles.modalCard}>
-                        <Text style={styles.modalTitle}>
-                            {editandoId ? t.editPesticide : t.addPesticide}
+                    <View style={[styles.modalCard, { paddingBottom: SPACING.lg }]}>
+                        <Text style={styles.modalTitle}>📦 {t.stockUpdate}</Text>
+                        <Text style={styles.label}>
+                            {stockTarget?.nombre} — {t.stockCurrent}:{' '}
+                            <Text style={{ color: COLORS.primary, fontWeight: '800' }}>
+                                {stockTarget?.stock != null ? parseFloat(stockTarget.stock).toFixed(2) : '0'} L
+                            </Text>
                         </Text>
-
-                        <Text style={styles.label}>{t.pesticideName}</Text>
                         <TextInput
-                            style={styles.input}
-                            value={nombre}
-                            onChangeText={setNombre}
-                            placeholder="Ej: Glifosato"
+                            style={[styles.input, { marginTop: SPACING.sm }]}
+                            value={nuevoStock}
+                            onChangeText={setNuevoStock}
+                            placeholder="0.00"
                             placeholderTextColor={COLORS.textLight}
+                            keyboardType="decimal-pad"
+                            maxLength={10}
+                            autoFocus
                         />
-
-                        <Text style={styles.label}>{t.pesticideType}</Text>
-                        <TextInput
-                            style={styles.input}
-                            value={tipo}
-                            onChangeText={setTipo}
-                            placeholder="Ej: Herbicida"
-                            placeholderTextColor={COLORS.textLight}
-                        />
-
-                        <Text style={styles.label}>{t.pesticideImage}</Text>
-                        {imagenUri && (
-                            <Image source={{ uri: imagenUri }} style={styles.previewImage} />
-                        )}
-                        <View style={styles.imageRow}>
-                            <TouchableOpacity style={styles.imgBtn} onPress={tomarFoto}>
-                                <Text style={styles.imgBtnText}>📷 {t.takePhoto}</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.imgBtn} onPress={elegirFoto}>
-                                <Text style={styles.imgBtnText}>🖼️ {t.choosePhoto}</Text>
-                            </TouchableOpacity>
-                        </View>
-
                         <View style={styles.modalActions}>
-                            <TouchableOpacity style={styles.cancelBtn} onPress={cerrarModal}>
+                            <TouchableOpacity
+                                style={styles.cancelBtn}
+                                onPress={() => setStockModalVisible(false)}
+                            >
                                 <Text style={styles.cancelBtnText}>{t.cancel}</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 style={[styles.saveBtn, guardando && { opacity: 0.6 }]}
-                                onPress={guardar}
+                                onPress={guardarStock}
                                 disabled={guardando}
                             >
                                 {guardando
@@ -318,6 +451,15 @@ const styles = StyleSheet.create({
     editBtnText: { fontSize: 20 },
     deleteItemBtn: { padding: 8 },
     deleteItemBtnText: { fontSize: 20 },
+    // Stock badge
+    stockBadge: {
+        borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2,
+        alignSelf: 'flex-start', marginTop: 4,
+    },
+    stockBadgeEmpty: { backgroundColor: '#FFEBEE' },
+    stockBadgeLow: { backgroundColor: '#FFF3E0' },
+    stockBadgeOk: { backgroundColor: '#E8F5E9' },
+    stockBadgeText: { fontSize: 12, fontWeight: '700' },
     // Modal
     modalOverlay: {
         flex: 1, backgroundColor: 'rgba(0,0,0,0.6)',

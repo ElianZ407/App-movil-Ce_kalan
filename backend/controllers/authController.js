@@ -1,7 +1,8 @@
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const pool = require('../config/database');
-require('dotenv').config();
+// dotenv ya fue cargado en server.js al iniciar
+
 
 const SALT_ROUNDS = 10;
 

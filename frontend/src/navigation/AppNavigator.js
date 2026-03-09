@@ -3,16 +3,18 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
-import { COLORS } from '../constants/theme';
+import { useTheme } from '../context/ThemeContext';
 
 // Screens - Auth
 import LoginScreen from '../screens/LoginScreen';
 import RegistroScreen from '../screens/RegistroScreen';
 
 // Screens - App
+import HomeScreen from '../screens/HomeScreen';
 import CalculadoraScreen from '../screens/CalculadoraScreen';
 import PlaguicidasScreen from '../screens/PlaguicidasScreen';
 import CalendarioScreen from '../screens/CalendarioScreen';
@@ -26,6 +28,7 @@ const Tab = createBottomTabNavigator();
 // ============================================================
 function AppTabs() {
     const { t } = useLanguage();
+    const { colors } = useTheme();
 
     const TabIcon = ({ emoji, focused }) => (
         <View style={{ alignItems: 'center', justifyContent: 'center' }}>
@@ -38,21 +41,30 @@ function AppTabs() {
             screenOptions={{
                 headerShown: false,
                 tabBarStyle: {
-                    backgroundColor: COLORS.primaryDark,
-                    borderTopWidth: 0,
+                    backgroundColor: colors.tabBar,
+                    borderTopWidth: 1,
+                    borderTopColor: colors.tabBarBorder,
                     height: 65,
                     paddingBottom: 8,
                     paddingTop: 4,
                     elevation: 20,
-                    shadowColor: COLORS.primaryDark,
+                    shadowColor: '#000',
                     shadowOpacity: 0.3,
                     shadowRadius: 10,
                 },
-                tabBarActiveTintColor: COLORS.secondary,
+                tabBarActiveTintColor: colors.secondary,
                 tabBarInactiveTintColor: 'rgba(255,255,255,0.5)',
                 tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
             }}
         >
+            <Tab.Screen
+                name="Inicio"
+                component={HomeScreen}
+                options={{
+                    tabBarLabel: t.home,
+                    tabBarIcon: ({ focused }) => <TabIcon emoji="🏠" focused={focused} />,
+                }}
+            />
             <Tab.Screen
                 name="Calculadora"
                 component={CalculadoraScreen}
@@ -94,25 +106,26 @@ function AppTabs() {
 // ============================================================
 export default function AppNavigator() {
     const { usuario, cargando } = useAuth();
+    const { colors, isDark } = useTheme();
 
     if (cargando) {
         return (
-            <View style={styles.loading}>
+            <View style={[styles.loading, { backgroundColor: colors.primaryDark }]}>
+                <StatusBar style="light" />
                 <Text style={styles.loadingEmoji}>🌿</Text>
                 <Text style={styles.loadingText}>Ce-Kalan</Text>
-                <ActivityIndicator color={COLORS.secondary} size="large" style={{ marginTop: 20 }} />
+                <ActivityIndicator color={colors.secondary} size="large" style={{ marginTop: 20 }} />
             </View>
         );
     }
 
     return (
         <NavigationContainer>
+            <StatusBar style={isDark ? 'light' : 'light'} />
             <Stack.Navigator screenOptions={{ headerShown: false }}>
                 {usuario ? (
-                    // App autenticada
                     <Stack.Screen name="AppMain" component={AppTabs} />
                 ) : (
-                    // Flujo de autenticación
                     <>
                         <Stack.Screen name="Login" component={LoginScreen} />
                         <Stack.Screen name="Registro" component={RegistroScreen} />
@@ -126,10 +139,7 @@ export default function AppNavigator() {
 const styles = StyleSheet.create({
     loading: {
         flex: 1, justifyContent: 'center', alignItems: 'center',
-        backgroundColor: COLORS.primaryDark,
     },
     loadingEmoji: { fontSize: 60, marginBottom: 16 },
-    loadingText: {
-        fontSize: 34, fontWeight: '800', color: '#fff', letterSpacing: 3
-    },
+    loadingText: { fontSize: 34, fontWeight: '800', color: '#fff', letterSpacing: 3 },
 });

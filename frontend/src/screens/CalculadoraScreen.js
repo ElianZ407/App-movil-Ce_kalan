@@ -2,13 +2,18 @@ import React, { useState, useCallback } from 'react';
 import {
     View, Text, TextInput, TouchableOpacity, StyleSheet,
     Alert, ScrollView, ActivityIndicator, KeyboardAvoidingView,
-    Platform, FlatList,
+    Platform, StatusBar,
 } from 'react-native';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
 import axios from 'axios';
 import { useFocusEffect } from '@react-navigation/native';
 import { ENDPOINTS } from '../config/api';
 import { useLanguage } from '../context/LanguageContext';
+import { useTheme } from '../context/ThemeContext';
 import { COLORS, SPACING, SHADOWS } from '../constants/theme';
+import { validateCalculadora } from '../utils/validation';
+import { getErrorMessage, logError } from '../utils/errorHandler';
 
 export default function CalculadoraScreen() {
     const [ancho, setAncho] = useState('');
@@ -16,9 +21,11 @@ export default function CalculadoraScreen() {
     const [dosis, setDosis] = useState('');
     const [resultado, setResultado] = useState(null);
     const [cargando, setCargando] = useState(false);
+    const [compartiendo, setCompartiendo] = useState(false);
     const [historial, setHistorial] = useState([]);
     const [cargandoHistorial, setCargandoHistorial] = useState(false);
     const { t } = useLanguage();
+    const { colors } = useTheme();
 
     const cargarHistorial = useCallback(async () => {
         setCargandoHistorial(true);
@@ -26,7 +33,8 @@ export default function CalculadoraScreen() {
             const res = await axios.get(ENDPOINTS.CALCULOS);
             setHistorial(res.data.data || []);
         } catch (e) {
-            console.error('Error al cargar historial:', e);
+            logError('CalculadoraScreen.cargarHistorial', e);
+            // No mostramos error al usuario aquí para no interrumpir la experiencia
         } finally {
             setCargandoHistorial(false);
         }
@@ -35,22 +43,19 @@ export default function CalculadoraScreen() {
     useFocusEffect(useCallback(() => { cargarHistorial(); }, [cargarHistorial]));
 
     const calcular = async () => {
-        if (!ancho || !largo || !dosis) {
-            Alert.alert(t.error, t.required);
+        // Validar entradas con el utilitario de seguridad
+        const { valid, error } = validateCalculadora(ancho, largo, dosis);
+        if (!valid) {
+            Alert.alert(t.error, error);
             return;
         }
+
         const a = parseFloat(ancho);
         const l = parseFloat(largo);
         const d = parseFloat(dosis);
-
-        if (isNaN(a) || isNaN(l) || isNaN(d) || a <= 0 || l <= 0 || d <= 0) {
-            Alert.alert(t.error, 'Ingresa valores numéricos positivos.');
-            return;
-        }
-
         const area = a * l;
         const res = (area * d) / 10000;
-        setResultado({ area, resultado: res });
+        setResultado({ area, resultado: res, ancho: a, largo: l, dosis: d });
 
         setCargando(true);
         try {
@@ -58,9 +63,87 @@ export default function CalculadoraScreen() {
             Alert.alert(t.success, t.calculationSaved);
             cargarHistorial();
         } catch (error) {
-            Alert.alert(t.error, 'No se pudo guardar el cálculo.');
+            logError('CalculadoraScreen.calcular', error);
+            Alert.alert(t.error, getErrorMessage(error, 'No se pudo guardar el cálculo.'));
         } finally {
             setCargando(false);
+        }
+    };
+
+    const compartirResultado = async () => {
+        if (!resultado) return;
+        setCompartiendo(true);
+        try {
+            const fecha = new Date().toLocaleDateString('es-MX', {
+                day: '2-digit', month: 'long', year: 'numeric',
+            });
+            const html = `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <style>
+    body { font-family: Arial, sans-serif; padding: 40px; color: #1B2A1E; }
+    h1 { color: #1B5E20; font-size: 28px; margin-bottom: 4px; }
+    .subtitle { color: #78909C; font-size: 14px; margin-bottom: 32px; }
+    .result-box { background: #1B5E20; border-radius: 16px; padding: 24px; text-align: center; margin-bottom: 24px; }
+    .result-value { font-size: 48px; font-weight: bold; color: #FFA000; }
+    .result-label { color: rgba(255,255,255,0.8); font-size: 16px; margin-top: 4px; }
+    .detail-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 24px; }
+    .detail-card { background: #F1F8E9; border-radius: 12px; padding: 16px; text-align: center; }
+    .detail-value { font-size: 22px; font-weight: bold; color: #2E7D32; }
+    .detail-label { font-size: 12px; color: #4A694D; margin-top: 4px; }
+    .footer { color: #78909C; font-size: 12px; text-align: center; margin-top: 32px; border-top: 1px solid #C8E6C9; padding-top: 16px; }
+    .area-box { background: #E8F5E9; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+    .area-label { font-size: 13px; color: #4A694D; }
+    .area-value { font-size: 20px; font-weight: bold; color: #2E7D32; }
+  </style>
+</head>
+<body>
+  <h1>🌿 Ce-Kalan</h1>
+  <p class="subtitle">Reporte de Cálculo de Dosis Agrícola — ${fecha}</p>
+  <div class="result-box">
+    <div class="result-value">${resultado.resultado.toFixed(4)} L</div>
+    <div class="result-label">Litros de producto necesarios</div>
+  </div>
+  <div class="detail-grid">
+    <div class="detail-card">
+      <div class="detail-value">${resultado.ancho} m</div>
+      <div class="detail-label">Ancho</div>
+    </div>
+    <div class="detail-card">
+      <div class="detail-value">${resultado.largo} m</div>
+      <div class="detail-label">Largo</div>
+    </div>
+    <div class="detail-card">
+      <div class="detail-value">${resultado.dosis} L/ha</div>
+      <div class="detail-label">Dosis</div>
+    </div>
+  </div>
+  <div class="area-box">
+    <div class="area-label">Superficie total</div>
+    <div class="area-value">${resultado.area.toFixed(2)} m² = ${(resultado.area / 10000).toFixed(4)} ha</div>
+  </div>
+  <div class="footer">Generado por Ce-Kalan • Gestión agrícola inteligente</div>
+</body>
+</html>`;
+
+            const { uri } = await Print.printToFileAsync({ html, base64: false });
+            const disponible = await Sharing.isAvailableAsync();
+            if (disponible) {
+                await Sharing.shareAsync(uri, {
+                    mimeType: 'application/pdf',
+                    dialogTitle: 'Compartir cálculo',
+                    UTI: 'com.adobe.pdf',
+                });
+            } else {
+                Alert.alert(t.error, 'El dispositivo no soporta la función de compartir.');
+            }
+        } catch (err) {
+            logError('CalculadoraScreen.compartir', err);
+            Alert.alert(t.error, 'No se pudo generar el reporte.');
+        } finally {
+            setCompartiendo(false);
         }
     };
 
@@ -74,7 +157,8 @@ export default function CalculadoraScreen() {
                         await axios.delete(`${ENDPOINTS.CALCULOS}/${id}`);
                         cargarHistorial();
                     } catch (e) {
-                        Alert.alert(t.error, 'No se pudo eliminar.');
+                        logError('CalculadoraScreen.eliminarCalculo', e);
+                        Alert.alert(t.error, getErrorMessage(e, 'No se pudo eliminar el cálculo.'));
                     }
                 },
             },
@@ -107,6 +191,7 @@ export default function CalculadoraScreen() {
                                 keyboardType="decimal-pad"
                                 placeholder="0.00"
                                 placeholderTextColor={COLORS.textLight}
+                                maxLength={10}
                             />
                         </View>
                         <View style={[styles.inputGroup, { flex: 1 }]}>
@@ -118,6 +203,7 @@ export default function CalculadoraScreen() {
                                 keyboardType="decimal-pad"
                                 placeholder="0.00"
                                 placeholderTextColor={COLORS.textLight}
+                                maxLength={10}
                             />
                         </View>
                     </View>
@@ -131,6 +217,7 @@ export default function CalculadoraScreen() {
                             keyboardType="decimal-pad"
                             placeholder="0.00"
                             placeholderTextColor={COLORS.textLight}
+                            maxLength={10}
                         />
                     </View>
 
@@ -163,6 +250,17 @@ export default function CalculadoraScreen() {
                                 {'  '}({(resultado.area / 10000).toFixed(4)} {t.hectares})
                             </Text>
                         </View>
+                        {/* Botón compartir */}
+                        <TouchableOpacity
+                            style={styles.shareBtn}
+                            onPress={compartirResultado}
+                            disabled={compartiendo}
+                        >
+                            {compartiendo
+                                ? <ActivityIndicator color="#fff" size="small" />
+                                : <Text style={styles.shareBtnText}>📄 {t.shareCalc}</Text>
+                            }
+                        </TouchableOpacity>
                     </View>
                 )}
 
@@ -237,6 +335,12 @@ const styles = StyleSheet.create({
     resultUnit: { fontSize: 16, fontWeight: '400', color: 'rgba(255,255,255,0.7)' },
     resultDetail: { marginTop: SPACING.sm },
     resultDetailText: { color: 'rgba(255,255,255,0.65)', fontSize: 13 },
+    shareBtn: {
+        backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 10,
+        paddingVertical: 10, alignItems: 'center', marginTop: SPACING.sm,
+        borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)',
+    },
+    shareBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
     sectionTitle: {
         fontSize: 17, fontWeight: '700', color: COLORS.textPrimary,
         marginHorizontal: SPACING.md, marginTop: SPACING.sm, marginBottom: SPACING.sm,

@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import {
     View, Text, TextInput, TouchableOpacity, StyleSheet,
     Alert, ScrollView, Modal, ActivityIndicator,
+    KeyboardAvoidingView, Platform, Keyboard,
 } from 'react-native';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
 import axios from 'axios';
@@ -9,6 +10,8 @@ import { useFocusEffect } from '@react-navigation/native';
 import { ENDPOINTS } from '../config/api';
 import { useLanguage } from '../context/LanguageContext';
 import { COLORS, SPACING, SHADOWS } from '../constants/theme';
+import { validateEvento, limitAndSanitize } from '../utils/validation';
+import { getErrorMessage, logError } from '../utils/errorHandler';
 
 // Configuración de locale en español
 LocaleConfig.locales['es'] = {
@@ -40,7 +43,7 @@ export default function CalendarioScreen() {
             const res = await axios.get(ENDPOINTS.EVENTOS);
             setEventos(res.data.data || []);
         } catch (e) {
-            console.error('Error al cargar eventos:', e);
+            logError('CalendarioScreen.cargarEventos', e);
         } finally {
             setCargando(false);
         }
@@ -74,15 +77,20 @@ export default function CalendarioScreen() {
     };
 
     const guardarEvento = async () => {
-        if (!titulo.trim() || !diaSeleccionado) {
-            Alert.alert(t.error, 'Selecciona un día y escribe un título.');
+        // Sanitizar y validar entradas
+        const tituloSanitizado = limitAndSanitize(titulo, 200);
+        const descripcionSanitizada = limitAndSanitize(descripcion, 500);
+
+        const { valid, error } = validateEvento(tituloSanitizado, diaSeleccionado);
+        if (!valid) {
+            Alert.alert(t.error, error);
             return;
         }
         setGuardando(true);
         try {
             await axios.post(ENDPOINTS.EVENTOS, {
-                titulo: titulo.trim(),
-                descripcion: descripcion.trim(),
+                titulo: tituloSanitizado,
+                descripcion: descripcionSanitizada,
                 fecha: diaSeleccionado,
                 color: colorSeleccionado,
             });
@@ -94,7 +102,8 @@ export default function CalendarioScreen() {
             const evs = eventos.filter((ev) => ev.fecha.substring(0, 10) === diaSeleccionado);
             setEventosDelDia(evs);
         } catch (error) {
-            Alert.alert(t.error, 'No se pudo guardar el evento.');
+            logError('CalendarioScreen.guardarEvento', error);
+            Alert.alert(t.error, getErrorMessage(error, 'No se pudo guardar el evento.'));
         } finally {
             setGuardando(false);
         }
@@ -111,7 +120,8 @@ export default function CalendarioScreen() {
                         await cargarEventos();
                         setEventosDelDia((prev) => prev.filter((e) => e.id !== id));
                     } catch (e) {
-                        Alert.alert(t.error, 'No se pudo eliminar.');
+                        logError('CalendarioScreen.eliminarEvento', e);
+                        Alert.alert(t.error, getErrorMessage(e, 'No se pudo eliminar el evento.'));
                     }
                 },
             },
@@ -197,63 +207,83 @@ export default function CalendarioScreen() {
             </ScrollView>
 
             {/* Modal para nuevo evento */}
-            <Modal visible={modalVisible} transparent animationType="slide">
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalCard}>
-                        <Text style={styles.modalTitle}>{t.addEvent}</Text>
-                        <Text style={styles.modalDate}>📅 {diaSeleccionado}</Text>
-
-                        <Text style={styles.label}>{t.eventTitle}</Text>
-                        <TextInput
-                            style={styles.input}
-                            value={titulo}
-                            onChangeText={setTitulo}
-                            placeholder="Ej: Aplicar fumigación"
-                            placeholderTextColor={COLORS.textLight}
-                        />
-
-                        <Text style={styles.label}>{t.eventDescription}</Text>
-                        <TextInput
-                            style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
-                            value={descripcion}
-                            onChangeText={setDescripcion}
-                            placeholder="Detalles del evento..."
-                            placeholderTextColor={COLORS.textLight}
-                            multiline
-                        />
-
-                        <Text style={styles.label}>Color del evento</Text>
-                        <View style={styles.colorRow}>
-                            {COLORS_EVENTS.map((c) => (
-                                <TouchableOpacity
-                                    key={c}
-                                    style={[
-                                        styles.colorDot,
-                                        { backgroundColor: c },
-                                        colorSeleccionado === c && styles.colorDotSelected,
-                                    ]}
-                                    onPress={() => setColorSeleccionado(c)}
-                                />
-                            ))}
-                        </View>
-
-                        <View style={styles.modalActions}>
-                            <TouchableOpacity style={styles.cancelBtn} onPress={() => setModalVisible(false)}>
-                                <Text style={styles.cancelBtnText}>{t.cancel}</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[styles.saveBtn, guardando && { opacity: 0.6 }]}
-                                onPress={guardarEvento}
-                                disabled={guardando}
+            <Modal visible={modalVisible} transparent animationType="slide" onRequestClose={() => setModalVisible(false)}>
+                <KeyboardAvoidingView
+                    style={{ flex: 1 }}
+                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                >
+                    <TouchableOpacity
+                        style={styles.modalOverlay}
+                        activeOpacity={1}
+                        onPress={Keyboard.dismiss}
+                    >
+                        <TouchableOpacity activeOpacity={1} style={styles.modalCard}>
+                            <ScrollView
+                                keyboardShouldPersistTaps="handled"
+                                showsVerticalScrollIndicator={false}
+                                bounces={false}
                             >
-                                {guardando
-                                    ? <ActivityIndicator color="#fff" />
-                                    : <Text style={styles.saveBtnText}>{t.save}</Text>
-                                }
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                </View>
+                                <Text style={styles.modalTitle}>{t.addEvent}</Text>
+                                <Text style={styles.modalDate}>📅 {diaSeleccionado}</Text>
+
+                                <Text style={styles.label}>{t.eventTitle}</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    value={titulo}
+                                    onChangeText={setTitulo}
+                                    placeholder="Ej: Aplicar fumigación"
+                                    placeholderTextColor={COLORS.textLight}
+                                    maxLength={200}
+                                    returnKeyType="next"
+                                />
+
+                                <Text style={styles.label}>{t.eventDescription}</Text>
+                                <TextInput
+                                    style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
+                                    value={descripcion}
+                                    onChangeText={setDescripcion}
+                                    placeholder="Detalles del evento..."
+                                    placeholderTextColor={COLORS.textLight}
+                                    multiline
+                                    maxLength={500}
+                                    returnKeyType="done"
+                                    onSubmitEditing={Keyboard.dismiss}
+                                />
+
+                                <Text style={styles.label}>Color del evento</Text>
+                                <View style={styles.colorRow}>
+                                    {COLORS_EVENTS.map((c) => (
+                                        <TouchableOpacity
+                                            key={c}
+                                            style={[
+                                                styles.colorDot,
+                                                { backgroundColor: c },
+                                                colorSeleccionado === c && styles.colorDotSelected,
+                                            ]}
+                                            onPress={() => setColorSeleccionado(c)}
+                                        />
+                                    ))}
+                                </View>
+
+                                <View style={styles.modalActions}>
+                                    <TouchableOpacity style={styles.cancelBtn} onPress={() => setModalVisible(false)}>
+                                        <Text style={styles.cancelBtnText}>{t.cancel}</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={[styles.saveBtn, guardando && { opacity: 0.6 }]}
+                                        onPress={guardarEvento}
+                                        disabled={guardando}
+                                    >
+                                        {guardando
+                                            ? <ActivityIndicator color="#fff" />
+                                            : <Text style={styles.saveBtnText}>{t.save}</Text>
+                                        }
+                                    </TouchableOpacity>
+                                </View>
+                            </ScrollView>
+                        </TouchableOpacity>
+                    </TouchableOpacity>
+                </KeyboardAvoidingView>
             </Modal>
         </View>
     );

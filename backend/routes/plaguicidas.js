@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { verificarToken, verificarAdmin } = require('../middleware/auth');
-const { obtenerTodos, obtenerUno, crear, actualizar, eliminar } = require('../controllers/plaguicidasController');
+const { obtenerTodos, obtenerUno, crear, actualizar, eliminar, actualizarStock } = require('../controllers/plaguicidasController');
 const upload = require('../config/multer');
 
 // GET /api/plaguicidas - Todos pueden ver
@@ -18,5 +18,8 @@ router.put('/:id', verificarToken, verificarAdmin, upload.single('imagen'), actu
 
 // DELETE /api/plaguicidas/:id - Solo admin puede eliminar
 router.delete('/:id', verificarToken, verificarAdmin, eliminar);
+
+// PATCH /api/plaguicidas/:id/stock - Admin actualiza el stock
+router.patch('/:id/stock', verificarToken, verificarAdmin, actualizarStock);
 
 module.exports = router;
