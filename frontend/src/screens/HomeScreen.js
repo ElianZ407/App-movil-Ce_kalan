@@ -1,9 +1,10 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
     View, Text, TouchableOpacity, StyleSheet,
     ScrollView, ActivityIndicator, RefreshControl, StatusBar,
 } from 'react-native';
 import axios from 'axios';
+import * as Location from 'expo-location';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { ENDPOINTS } from '../config/api';
 import { useAuth } from '../context/AuthContext';
@@ -11,6 +12,49 @@ import { useLanguage } from '../context/LanguageContext';
 import { useTheme } from '../context/ThemeContext';
 import { SPACING, SHADOWS } from '../constants/theme';
 import { logError } from '../utils/errorHandler';
+
+// ============================================================
+// Helpers de clima — Open-Meteo (sin API key)
+// ============================================================
+
+/**
+ * Devuelve emoji + clave de traducción según WMO weather code
+ * https://open-meteo.com/en/docs#weathervariables
+ */
+const getWeatherInfo = (code) => {
+    if (code <= 1) return { emoji: '☀️', key: 'weatherClear' };
+    if (code <= 3) return { emoji: '⛅', key: 'weatherPartlyCloudy' };
+    if (code <= 48) return { emoji: '☁️', key: 'weatherCloudy' };
+    if (code <= 57) return { emoji: '🌧️', key: 'weatherDrizzle' };
+    if (code <= 67) return { emoji: '🌧️', key: 'weatherRain' };
+    if (code <= 77) return { emoji: '❄️', key: 'weatherSnow' };
+    if (code <= 82) return { emoji: '🌧️', key: 'weatherRain' };
+    if (code <= 86) return { emoji: '❄️', key: 'weatherSnow' };
+    return { emoji: '⛈️', key: 'weatherThunderstorm' };
+};
+
+/**
+ * Evalúa si las condiciones son buenas para aplicar plaguicida:
+ *  - Sin lluvia (code < 50)
+ *  - Viento < 15 km/h
+ *  - Temp entre 10°C y 35°C
+ */
+const isGoodForSpraying = (code, windSpeed, temp) => {
+    if (code >= 50) return false;   // lluvia/nieve
+    if (windSpeed > 15) return false; // mucho viento
+    if (temp < 10 || temp > 35) return false; // extremos
+    return true;
+};
+
+const fetchWeather = async (latitude, longitude) => {
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m&timezone=auto`;
+    const res = await axios.get(url, { timeout: 8000 });
+    return res.data.current;
+};
+
+// ============================================================
+// Componente principal
+// ============================================================
 
 export default function HomeScreen() {
     const [stats, setStats] = useState(null);
@@ -22,6 +66,12 @@ export default function HomeScreen() {
     const { colors } = useTheme();
     const navigation = useNavigation();
 
+    // ── Weather state ──
+    const [weather, setWeather] = useState(null);
+    const [weatherLoading, setWeatherLoading] = useState(true);
+    const [weatherError, setWeatherError] = useState(null);
+
+    // ── Cargar estadísticas ──
     const cargarStats = useCallback(async () => {
         setError(false);
         try {
@@ -29,22 +79,54 @@ export default function HomeScreen() {
             setStats(res.data.data);
         } catch (e) {
             logError('HomeScreen.cargarStats', e);
-            setError(true); // Muestra mensaje de error amigable
+            setError(true);
         } finally {
             setCargando(false);
             setRefreshing(false);
         }
     }, []);
 
+    // ── Cargar clima ──
+    const cargarClima = useCallback(async () => {
+        setWeatherLoading(true);
+        setWeatherError(null);
+        try {
+            const { status } = await Location.requestForegroundPermissionsAsync();
+            if (status !== 'granted') {
+                setWeatherError('locationDenied');
+                setWeatherLoading(false);
+                return;
+            }
+
+            const loc = await Location.getCurrentPositionAsync({
+                accuracy: Location.Accuracy.Balanced,
+            });
+            const data = await fetchWeather(loc.coords.latitude, loc.coords.longitude);
+            setWeather(data);
+        } catch (e) {
+            logError('HomeScreen.cargarClima', e);
+            setWeatherError('generic');
+        } finally {
+            setWeatherLoading(false);
+        }
+    }, []);
+
+    // ── Focus effect ──
     useFocusEffect(useCallback(() => {
         setCargando(true);
         setError(false);
         cargarStats();
     }, [cargarStats]));
 
+    // Clima solo al montar (no en cada focus para no gastar batería)
+    useEffect(() => {
+        cargarClima();
+    }, [cargarClima]);
+
     const onRefresh = () => {
         setRefreshing(true);
         cargarStats();
+        cargarClima();
     };
 
     const formatDate = (dateStr) => {
@@ -64,6 +146,77 @@ export default function HomeScreen() {
     };
 
     const s = makeStyles(colors);
+
+    // ── Weather card renderer ──
+    const renderWeatherCard = () => {
+        if (weatherLoading) {
+            return (
+                <View style={s.weatherCard}>
+                    <ActivityIndicator color={colors.secondary} size="small" />
+                    <Text style={s.weatherLoadingText}>{t.weatherLoading}</Text>
+                </View>
+            );
+        }
+
+        if (weatherError) {
+            return (
+                <View style={s.weatherCard}>
+                    <Text style={s.weatherErrorEmoji}>🌐</Text>
+                    <Text style={s.weatherErrorText}>
+                        {weatherError === 'locationDenied' ? t.weatherLocationDenied : t.weatherError}
+                    </Text>
+                    <TouchableOpacity style={s.weatherRetryBtn} onPress={cargarClima}>
+                        <Text style={s.weatherRetryText}>🔄</Text>
+                    </TouchableOpacity>
+                </View>
+            );
+        }
+
+        if (!weather) return null;
+
+        const info = getWeatherInfo(weather.weather_code);
+        const temp = Math.round(weather.temperature_2m);
+        const feelsLike = Math.round(weather.apparent_temperature);
+        const humidity = weather.relative_humidity_2m;
+        const wind = Math.round(weather.wind_speed_10m);
+        const goodConditions = isGoodForSpraying(weather.weather_code, wind, temp);
+
+        return (
+            <View style={s.weatherCard}>
+                {/* Fila principal */}
+                <View style={s.weatherMainRow}>
+                    <View style={s.weatherLeft}>
+                        <Text style={s.weatherEmoji}>{info.emoji}</Text>
+                        <View>
+                            <Text style={s.weatherTemp}>{temp}°C</Text>
+                            <Text style={s.weatherCondition}>{t[info.key]}</Text>
+                        </View>
+                    </View>
+                    <View style={s.weatherRight}>
+                        <Text style={s.weatherDetail}>
+                            {t.weatherFeelsLike}: {feelsLike}°C
+                        </Text>
+                        <Text style={s.weatherDetail}>
+                            💧 {humidity}%  •  💨 {wind} km/h
+                        </Text>
+                    </View>
+                </View>
+
+                {/* Indicador agrícola */}
+                <View style={[
+                    s.weatherAgriRow,
+                    { backgroundColor: goodConditions ? '#E8F5E9' : '#FFF3E0' }
+                ]}>
+                    <Text style={[
+                        s.weatherAgriText,
+                        { color: goodConditions ? '#2E7D32' : '#E65100' }
+                    ]}>
+                        {goodConditions ? t.weatherGoodConditions : t.weatherBadConditions}
+                    </Text>
+                </View>
+            </View>
+        );
+    };
 
     return (
         <View style={s.container}>
@@ -96,6 +249,10 @@ export default function HomeScreen() {
                         <Text style={s.avatarEmoji}>{esAdmin() ? '👨‍💼' : '👨‍🌾'}</Text>
                     </View>
                 </View>
+
+                {/* ── Tarjeta de clima ── */}
+                <Text style={s.sectionTitle}>🌤️ {t.weather}</Text>
+                {renderWeatherCard()}
 
                 {cargando ? (
                     <ActivityIndicator
@@ -335,6 +492,82 @@ const makeStyles = (colors) => StyleSheet.create({
         borderRadius: 20, padding: SPACING.md, ...SHADOWS.small,
     },
     emptyText: { color: colors.textLight, fontSize: 14, textAlign: 'center', paddingVertical: SPACING.sm },
+
+    // ── Weather card styles ──
+    weatherCard: {
+        backgroundColor: colors.surface,
+        marginHorizontal: SPACING.md,
+        borderRadius: 20,
+        padding: SPACING.md,
+        ...SHADOWS.small,
+        minHeight: 80,
+        justifyContent: 'center',
+    },
+    weatherMainRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+    weatherLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: SPACING.sm,
+    },
+    weatherRight: {
+        alignItems: 'flex-end',
+    },
+    weatherEmoji: {
+        fontSize: 44,
+    },
+    weatherTemp: {
+        fontSize: 30,
+        fontWeight: '800',
+        color: colors.textPrimary,
+    },
+    weatherCondition: {
+        fontSize: 13,
+        color: colors.textSecondary,
+        fontWeight: '600',
+    },
+    weatherDetail: {
+        fontSize: 12,
+        color: colors.textLight,
+        marginTop: 2,
+    },
+    weatherAgriRow: {
+        marginTop: SPACING.sm,
+        borderRadius: 12,
+        paddingVertical: 6,
+        paddingHorizontal: SPACING.sm,
+        alignItems: 'center',
+    },
+    weatherAgriText: {
+        fontSize: 13,
+        fontWeight: '700',
+    },
+    weatherLoadingText: {
+        color: colors.textLight,
+        fontSize: 13,
+        textAlign: 'center',
+        marginTop: SPACING.xs,
+    },
+    weatherErrorEmoji: {
+        fontSize: 28,
+        textAlign: 'center',
+    },
+    weatherErrorText: {
+        color: colors.textLight,
+        fontSize: 13,
+        textAlign: 'center',
+        marginTop: 4,
+    },
+    weatherRetryBtn: {
+        alignSelf: 'center',
+        marginTop: SPACING.xs,
+    },
+    weatherRetryText: {
+        fontSize: 20,
+    },
 
     // Stock alerts
     alertRow: {
