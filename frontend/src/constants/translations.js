@@ -47,7 +47,7 @@ const translations = {
         calculatorTitle: 'Calculadora de Dosis',
         width: 'Ancho (m)',
         length: 'Largo (m)',
-        dose: 'Dosis (L/ha)',
+        dose: 'Dosis',
         calculate: 'Calcular y Guardar',
         result: 'Resultado',
         resultUnit: 'litros necesarios',
@@ -57,6 +57,10 @@ const translations = {
         hectares: 'hectáreas',
         shareCalc: 'Compartir resultado',
         exportPDF: 'Exportar como PDF',
+        selectPesticide: 'Seleccionar plaguicida...',
+        selectPesticideRequired: 'Debes seleccionar un plaguicida.',
+        doseUnit: 'Unidad de dosis',
+        stockInsufficient: 'Stock insuficiente para este cálculo.',
 
         // Calendar
         calendarTitle: 'Calendario de Tareas',
@@ -165,7 +169,7 @@ const translations = {
         calculatorTitle: 'Dose Calculator',
         width: 'Width (m)',
         length: 'Length (m)',
-        dose: 'Dose (L/ha)',
+        dose: 'Dose',
         calculate: 'Calculate & Save',
         result: 'Result',
         resultUnit: 'liters needed',
@@ -175,6 +179,10 @@ const translations = {
         hectares: 'hectares',
         shareCalc: 'Share result',
         exportPDF: 'Export as PDF',
+        selectPesticide: 'Select pesticide...',
+        selectPesticideRequired: 'You must select a pesticide.',
+        doseUnit: 'Dose unit',
+        stockInsufficient: 'Insufficient stock for this calculation.',
 
         // Calendar
         calendarTitle: 'Task Calendar',

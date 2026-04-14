@@ -57,8 +57,10 @@ export const getErrorMessage = (error, contextMsg = 'Ha ocurrido un error. Inten
  */
 export const logError = (context, error) => {
     if (__DEV__) {
-        // Solo en modo desarrollo se muestra el detalle en consola
-        console.error(`[Ce-Kalan Error] ${context}:`, error?.message || error);
+        // ⚠️ Usamos console.warn en lugar de console.error
+        // para evitar que Expo Go muestre la pantalla roja de error
+        // en errores manejados (como contraseña incorrecta).
+        console.warn(`[Ce-Kalan] ${context}:`, error?.message || error);
     }
     // En producción aquí iría: Sentry.captureException(error);
 };

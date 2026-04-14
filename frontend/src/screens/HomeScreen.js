@@ -138,8 +138,10 @@ export default function HomeScreen() {
     const getDaysUntil = (dateStr) => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        const target = new Date(dateStr + 'T00:00:00');
+        const fechaLimpia = String(dateStr).substring(0, 10); // YYYY-MM-DD
+        const target = new Date(fechaLimpia + 'T00:00:00');
         const diff = Math.round((target - today) / (1000 * 60 * 60 * 24));
+        if (isNaN(diff)) return '';
         if (diff === 0) return 'Hoy';
         if (diff === 1) return 'Mañana';
         return `En ${diff} días`;

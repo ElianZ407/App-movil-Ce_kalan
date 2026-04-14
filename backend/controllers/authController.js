@@ -8,7 +8,7 @@ const SALT_ROUNDS = 10;
 
 // POST /api/auth/registro
 const registro = async (req, res) => {
-    const { nombre, correo, password, tipo = 'usuario' } = req.body;
+    const { nombre, correo, password } = req.body;
 
     if (!nombre || !correo || !password) {
         return res.status(400).json({
@@ -41,18 +41,19 @@ const registro = async (req, res) => {
         // Encriptar contraseña
         const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
 
-        // Solo permitir 'admin' o 'usuario'
-        const tipoFinal = tipo === 'admin' ? 'admin' : 'usuario';
+        // ✅ SEGURIDAD: Siempre se registra como 'usuario'.
+        // Para crear admins, hacerlo directamente en la base de datos.
+        const tipo = 'usuario';
 
         // Insertar usuario
         const [result] = await pool.execute(
             'INSERT INTO usuarios (nombre, correo, password, tipo) VALUES (?, ?, ?, ?)',
-            [nombre, correo, hashedPassword, tipoFinal]
+            [nombre, correo, hashedPassword, tipo]
         );
 
         // Generar token
         const token = jwt.sign(
-            { id: result.insertId, nombre, correo, tipo: tipoFinal },
+            { id: result.insertId, nombre, correo, tipo },
             process.env.JWT_SECRET,
             { expiresIn: process.env.JWT_EXPIRES_IN }
         );
@@ -61,7 +62,7 @@ const registro = async (req, res) => {
             success: true,
             mensaje: 'Usuario registrado exitosamente.',
             token,
-            usuario: { id: result.insertId, nombre, correo, tipo: tipoFinal }
+            usuario: { id: result.insertId, nombre, correo, tipo }
         });
 
     } catch (error) {
