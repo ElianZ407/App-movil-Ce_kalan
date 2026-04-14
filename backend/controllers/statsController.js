@@ -1,4 +1,5 @@
 const pool = require('../config/database');
+const { descifrar } = require('../config/encryption');
 
 // GET /api/stats — Estadísticas globales del usuario autenticado
 const obtenerStats = async (req, res) => {
@@ -20,11 +21,22 @@ const obtenerStats = async (req, res) => {
             [userId]
         );
 
-        // Último cálculo
+        // Último cálculo (descifrar campos antes de devolver)
         const [ultimoCalculo] = await pool.execute(
             'SELECT ancho, largo, dosis, resultado, fecha FROM calculos WHERE user_id = ? ORDER BY fecha DESC LIMIT 1',
             [userId]
         );
+
+        let ultimoDescifrado = null;
+        if (ultimoCalculo[0]) {
+            ultimoDescifrado = {
+                ancho: parseFloat(descifrar(ultimoCalculo[0].ancho)),
+                largo: parseFloat(descifrar(ultimoCalculo[0].largo)),
+                dosis: parseFloat(descifrar(ultimoCalculo[0].dosis)),
+                resultado: parseFloat(descifrar(ultimoCalculo[0].resultado)),
+                fecha: ultimoCalculo[0].fecha,
+            };
+        }
 
         // Próximos 3 eventos (fechas iguales o posteriores a hoy)
         const hoy = new Date().toISOString().substring(0, 10);
@@ -48,7 +60,7 @@ const obtenerStats = async (req, res) => {
             data: {
                 total_plaguicidas,
                 total_calculos,
-                ultimo_calculo: ultimoCalculo[0] || null,
+                ultimo_calculo: ultimoDescifrado,
                 proximos_eventos: proximosEventos,
                 stock_bajo: stockBajo,
             },

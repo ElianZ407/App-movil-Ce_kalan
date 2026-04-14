@@ -36,3 +36,7 @@ export const ENDPOINTS = {
     STATS: `${API_BASE_URL}/stats`,
     STOCK_ACTUALIZAR: (id) => `${API_BASE_URL}/plaguicidas/${id}/stock`,
 };
+
+// API externa de clima (Open-Meteo, gratuita, sin API key)
+// Se usa directamente desde el frontend con las coordenadas del usuario
+export const WEATHER_API_URL = 'https://api.open-meteo.com/v1/forecast';
