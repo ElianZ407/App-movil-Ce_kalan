@@ -9,6 +9,9 @@ import { useFocusEffect } from '@react-navigation/native';
 import { ENDPOINTS } from '../config/api';
 import { useLanguage } from '../context/LanguageContext';
 import { COLORS, SPACING, SHADOWS } from '../constants/theme';
+import { calcularDosis } from '../utils/calculos';
+import { calcularDosis } from '../utils/calculos';
+
 
 export default function CalculadoraScreen() {
     const [ancho, setAncho] = useState('');
@@ -39,18 +42,18 @@ export default function CalculadoraScreen() {
             Alert.alert(t.error, t.required);
             return;
         }
-        const a = parseFloat(ancho);
-        const l = parseFloat(largo);
-        const d = parseFloat(dosis);
 
-        if (isNaN(a) || isNaN(l) || isNaN(d) || a <= 0 || l <= 0 || d <= 0) {
-            Alert.alert(t.error, 'Ingresa valores numéricos positivos.');
+        let a, l, d;
+        try {
+            const resultadoCalculo = calcularDosis(ancho, largo, dosis);
+            a = resultadoCalculo.ancho;
+            l = resultadoCalculo.largo;
+            d = resultadoCalculo.dosis;
+            setResultado({ area: resultadoCalculo.area, resultado: resultadoCalculo.resultado });
+        } catch (error) {
+            Alert.alert(t.error, error.message);
             return;
         }
-
-        const area = a * l;
-        const res = (area * d) / 10000;
-        setResultado({ area, resultado: res });
 
         setCargando(true);
         try {
