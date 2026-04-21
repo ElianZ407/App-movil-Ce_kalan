@@ -123,7 +123,7 @@ export default function PerfilScreen() {
 
             {/* Logout */}
             <TouchableOpacity
-                style={[styles.logoutBtn, { backgroundColor: colors.isDark ? '#2D1010' : '#FFEBEE', borderColor: colors.isDark ? '#5C2020' : '#FFCDD2' }]}
+                style={[styles.logoutBtn, { backgroundColor: isDark ? '#2D1010' : '#FFEBEE', borderColor: isDark ? '#5C2020' : '#FFCDD2' }]}
                 onPress={handleLogout}
             >
                 <Text style={[styles.logoutBtnText, { color: colors.error }]}>🚪 {t.logout}</Text>

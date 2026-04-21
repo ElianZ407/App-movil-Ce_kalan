@@ -26,13 +26,17 @@ export const AuthProvider = ({ children }) => {
                 const usuarioGuardado = await SecureStore.getItemAsync(USUARIO_KEY);
 
                 if (tokenGuardado && usuarioGuardado) {
-                    const usuarioParsed = JSON.parse(usuarioGuardado);
                     axios.defaults.headers.common['Authorization'] = `Bearer ${tokenGuardado}`;
+                    // Verificar que el token siga válido en el servidor
+                    const res = await axios.get(ENDPOINTS.PERFIL);
                     setToken(tokenGuardado);
-                    setUsuario(usuarioParsed);
+                    setUsuario(res.data.usuario ?? JSON.parse(usuarioGuardado));
+                    await SecureStore.setItemAsync(USUARIO_KEY, JSON.stringify(res.data.usuario ?? JSON.parse(usuarioGuardado)));
                 }
             } catch (error) {
-                if (__DEV__) console.warn('[Ce-Kalan] Error al restaurar sesión:', error?.message);
+                // Token expirado o inválido: limpiar sesión y mostrar login
+                if (__DEV__) console.warn('[Ce-Kalan] Sesión inválida al restaurar:', error?.message);
+                delete axios.defaults.headers.common['Authorization'];
                 await SecureStore.deleteItemAsync(TOKEN_KEY).catch(() => {});
                 await SecureStore.deleteItemAsync(USUARIO_KEY).catch(() => {});
             } finally {

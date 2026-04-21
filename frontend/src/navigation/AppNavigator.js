@@ -121,7 +121,7 @@ export default function AppNavigator() {
 
     return (
         <NavigationContainer>
-            <StatusBar style={isDark ? 'light' : 'light'} />
+            <StatusBar style="light" />
             <Stack.Navigator screenOptions={{ headerShown: false }}>
                 {usuario ? (
                     <Stack.Screen name="AppMain" component={AppTabs} />
