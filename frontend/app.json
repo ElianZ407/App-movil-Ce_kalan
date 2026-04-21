@@ -13,14 +13,25 @@
         },
         "ios": {
             "supportsTablet": true,
-            "bundleIdentifier": "com.cekalan.app"
+            "bundleIdentifier": "com.cekalan.app",
+            "infoPlist": {
+                "NSCameraUsageDescription": "Ce-Kalan necesita acceso a la cámara para tomar fotos de plaguicidas.",
+                "NSPhotoLibraryUsageDescription": "Ce-Kalan necesita acceso a tus fotos para gestionar imágenes de plaguicidas.",
+                "NSPhotoLibraryAddUsageDescription": "Ce-Kalan guardará fotos de plaguicidas en tu galería."
+            }
         },
         "android": {
             "adaptiveIcon": {
                 "foregroundImage": "./assets/adaptive-icon.png",
                 "backgroundColor": "#1B5E20"
             },
-            "package": "com.cekalan.app"
+            "package": "com.cekalan.app",
+            "permissions": [
+                "CAMERA",
+                "READ_EXTERNAL_STORAGE",
+                "WRITE_EXTERNAL_STORAGE",
+                "READ_MEDIA_IMAGES"
+            ]
         },
         "web": {
             "favicon": "./assets/favicon.png"

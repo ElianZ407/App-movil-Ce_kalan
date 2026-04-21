@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import {
     View, Text, TextInput, TouchableOpacity, StyleSheet,
     Alert, ScrollView, Image, ActivityIndicator, Modal,
-    KeyboardAvoidingView, Platform, Keyboard,
+    KeyboardAvoidingView, Platform, Keyboard, Linking,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import axios from 'axios';
@@ -103,12 +103,39 @@ export default function PlaguicidasScreen() {
         }
     };
 
+    const mostrarAlertaConfiguracion = (tipo) => {
+        const esCamara = tipo === 'camara';
+        Alert.alert(
+            esCamara ? 'Permiso de cámara requerido' : 'Permiso de galería requerido',
+            esCamara
+                ? 'Ce-Kalan no tiene acceso a tu cámara. Ve a Configuración y activa el permiso.'
+                : 'Ce-Kalan no tiene acceso a tus fotos. Ve a Configuración y activa el permiso.',
+            [
+                { text: 'Cancelar', style: 'cancel' },
+                { text: 'Abrir Configuración', onPress: () => Linking.openSettings() },
+            ]
+        );
+    };
+
     const tomarFoto = async () => {
-        const { status } = await ImagePicker.requestCameraPermissionsAsync();
-        if (status !== 'granted') {
-            Alert.alert(t.error, 'Se necesita permiso para acceder a la cámara.');
+        // Verificar estado actual antes de pedir permiso
+        const actual = await ImagePicker.getCameraPermissionsAsync();
+
+        if (actual.status === 'granted') {
+            // Ya tiene permiso, abrir cámara directo
+        } else if (actual.status === 'undetermined') {
+            // Primera vez: pedir permiso al sistema (muestra el diálogo de iOS/Android)
+            const { status } = await ImagePicker.requestCameraPermissionsAsync();
+            if (status !== 'granted') {
+                mostrarAlertaConfiguracion('camara');
+                return;
+            }
+        } else {
+            // Denegado previamente: iOS no vuelve a mostrar el diálogo, redirigir a Configuración
+            mostrarAlertaConfiguracion('camara');
             return;
         }
+
         const result = await ImagePicker.launchCameraAsync({
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
             allowsEditing: true, aspect: [4, 3], quality: 0.8,
@@ -117,11 +144,21 @@ export default function PlaguicidasScreen() {
     };
 
     const elegirFoto = async () => {
-        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (status !== 'granted') {
-            Alert.alert(t.error, 'Se necesita permiso para acceder a la galería.');
+        const actual = await ImagePicker.getMediaLibraryPermissionsAsync();
+
+        if (actual.status === 'granted') {
+            // Ya tiene permiso, abrir galería directo
+        } else if (actual.status === 'undetermined') {
+            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (status !== 'granted') {
+                mostrarAlertaConfiguracion('galeria');
+                return;
+            }
+        } else {
+            mostrarAlertaConfiguracion('galeria');
             return;
         }
+
         const result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
             allowsEditing: true, aspect: [4, 3], quality: 0.8,

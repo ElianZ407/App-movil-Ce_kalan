@@ -19,21 +19,23 @@ export const AuthProvider = ({ children }) => {
     const [token, setToken] = useState(null);
     const [cargando, setCargando] = useState(true);
 
-    // ── Política de seguridad: login obligatorio al iniciar la app ────────
-    // Por seguridad, la sesión NO se restaura automáticamente entre reinicios.
-    // El token se cifra en SecureStore durante la sesión activa (cumpliendo
-    // el requisito de cifrado en reposo), pero se limpia al cerrar la app.
     useEffect(() => {
         const iniciarApp = async () => {
             try {
-                // Siempre limpiar sesión guardada → forzar login manual
-                await SecureStore.deleteItemAsync(TOKEN_KEY);
-                await SecureStore.deleteItemAsync(USUARIO_KEY);
-                delete axios.defaults.headers.common['Authorization'];
+                const tokenGuardado = await SecureStore.getItemAsync(TOKEN_KEY);
+                const usuarioGuardado = await SecureStore.getItemAsync(USUARIO_KEY);
+
+                if (tokenGuardado && usuarioGuardado) {
+                    const usuarioParsed = JSON.parse(usuarioGuardado);
+                    axios.defaults.headers.common['Authorization'] = `Bearer ${tokenGuardado}`;
+                    setToken(tokenGuardado);
+                    setUsuario(usuarioParsed);
+                }
             } catch (error) {
-                if (__DEV__) console.warn('[Ce-Kalan] Error al limpiar sesión inicial:', error?.message);
+                if (__DEV__) console.warn('[Ce-Kalan] Error al restaurar sesión:', error?.message);
+                await SecureStore.deleteItemAsync(TOKEN_KEY).catch(() => {});
+                await SecureStore.deleteItemAsync(USUARIO_KEY).catch(() => {});
             } finally {
-                // usuario y token quedan en null → AppNavigator muestra Login
                 setCargando(false);
             }
         };
